@@ -1,24 +1,22 @@
 import { Tabs } from 'expo-router';
 import { useCart } from '../../services/cartContext';
 import { useWishlist } from '../../services/wishlistContext';
-import { Text, View, Image, StyleSheet } from 'react-native';
+import { Text, View, StyleSheet } from 'react-native';
 
-// Navigation icons — line style, from the design screenshot
-const NAV = {
-  home: require('../../assets/icons/nav_home.png'),
-  search: require('../../assets/icons/nav_search.png'),
-  heart: require('../../assets/icons/nav_heart.png'),
-  cart: require('../../assets/icons/nav_cart.png'),
-  account: require('../../assets/icons/nav_account.png'),
+// Tab icons as simple Unicode — works perfectly on web
+const TAB_ICONS = {
+  home: { active: '🏠', inactive: '🏠' },
+  search: { active: '🔍', inactive: '🔍' },
+  heart: { active: '❤️', inactive: '🤍' },
+  cart: { active: '🛍️', inactive: '🛍️' },
+  account: { active: '👤', inactive: '👤' },
 };
 
-function TabIcon({ source, focused }: { source: any; focused: boolean }) {
+function TabEmoji({ icon, focused }: { icon: { active: string; inactive: string }; focused: boolean }) {
   return (
-    <Image
-      source={source}
-      style={[styles.icon, { opacity: focused ? 1 : 0.4 }]}
-      resizeMode="contain"
-    />
+    <Text style={[styles.tabEmoji, { opacity: focused ? 1 : 0.45 }]}>
+      {focused ? icon.active : icon.inactive}
+    </Text>
   );
 }
 
@@ -38,9 +36,9 @@ export default function TabLayout() {
           backgroundColor: '#FFFFFF',
           borderTopColor: '#EEEEEE',
           borderTopWidth: 1,
-          height: 56,
+          height: 52,
           paddingBottom: 4,
-          paddingTop: 8,
+          paddingTop: 6,
         },
         headerShown: false,
       }}
@@ -49,21 +47,21 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ focused }) => <TabIcon source={NAV.home} focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabEmoji icon={TAB_ICONS.home} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="search"
         options={{
           title: 'Search',
-          tabBarIcon: ({ focused }) => <TabIcon source={NAV.search} focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabEmoji icon={TAB_ICONS.search} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="wishlist"
         options={{
           title: 'Wishlist',
-          tabBarIcon: ({ focused }) => <TabIcon source={NAV.heart} focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabEmoji icon={TAB_ICONS.heart} focused={focused} />,
           tabBarBadge: wishlistCount > 0 ? wishlistCount : undefined,
         }}
       />
@@ -71,7 +69,7 @@ export default function TabLayout() {
         name="cart"
         options={{
           title: 'Cart',
-          tabBarIcon: ({ focused }) => <TabIcon source={NAV.cart} focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabEmoji icon={TAB_ICONS.cart} focused={focused} />,
           tabBarBadge: cartCount > 0 ? cartCount : undefined,
         }}
       />
@@ -79,7 +77,7 @@ export default function TabLayout() {
         name="account"
         options={{
           title: 'Account',
-          tabBarIcon: ({ focused }) => <TabIcon source={NAV.account} focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabEmoji icon={TAB_ICONS.account} focused={focused} />,
         }}
       />
     </Tabs>
@@ -87,9 +85,7 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  icon: {
-    width: 24,
-    height: 24,
-    tintColor: '#1a1a1a',
+  tabEmoji: {
+    fontSize: 22,
   },
 });
