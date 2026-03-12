@@ -35,6 +35,7 @@ const FIGMA = {
 };
 
 // ─── Hero slider banners (clean images, text added in code) ─
+// Links synced with tinyaura.us Shopify collections
 const SLIDES = [
   {
     id: '1',
@@ -42,8 +43,7 @@ const SLIDES = [
     title: 'New Arrivals',
     desc: "Introducing our latest products,\nmade especially for the season.\nShop your favorites before\nthey're gone!",
     btnText: 'SHOP NOW',
-    link: '/collection/new-arrivals',
-    showOverlay: true,
+    link: '/collection/new',
   },
   {
     id: '2',
@@ -51,8 +51,7 @@ const SLIDES = [
     title: 'Discovery Sets',
     desc: "Explore our curated selection\nof premium fragrances.\nFind your signature scent\nwith our sample collections.",
     btnText: 'SHOP NOW',
-    link: '/collection/discovery-sets',
-    showOverlay: true,
+    link: '/collection/gift-sets',
   },
   {
     id: '3',
@@ -61,7 +60,6 @@ const SLIDES = [
     desc: "Try your luck! Spin the wheel\nfor a chance to win up to\n15% off on premium\nfragrances. Limited time only!",
     btnText: 'Browse All Scents',
     link: '/collection/all',
-    showOverlay: true,
   },
 ];
 
@@ -73,11 +71,12 @@ const ICONS = {
   trustShipping: require('../../assets/icons/trust_shipping.png'),
 };
 
+// Categories synced with tinyaura.us/collections/*
 const CATEGORIES = [
-  { title: "Today's\nDeals", handle: 'deals', img: FIGMA.catDeals },
-  { title: "Women's\nParfume", handle: 'womens-perfume', img: FIGMA.catWomen },
-  { title: "Men's\nCologne", handle: 'mens-cologne', img: FIGMA.catMen },
-  { title: 'Travel\nSprays', handle: 'travel-sprays', img: FIGMA.catTravel },
+  { title: "Today's\nDeals", handle: 'sale', img: FIGMA.catDeals },
+  { title: "Women's\nParfume", handle: 'women', img: FIGMA.catWomen },
+  { title: "Men's\nCologne", handle: 'men', img: FIGMA.catMen },
+  { title: 'Travel\nSprays', handle: 'unisex', img: FIGMA.catTravel },
   { title: 'Gift\nSets', handle: 'gift-sets', img: FIGMA.catGifts },
 ];
 
@@ -113,7 +112,7 @@ export default function HomeScreen() {
 
   async function loadData() {
     try {
-      const products = await getCollectionProducts('new-arrivals').catch(() => []);
+      const products = await getCollectionProducts('best-sellers').catch(() => []);
       setBestsellers(products);
     } catch (e) {
       console.error(e);
@@ -209,8 +208,8 @@ export default function HomeScreen() {
         ))}
       </ScrollView>
 
-      {/* ══════ 60% OFF PROMO BANNER ══════ */}
-      <View style={s.promoWrap}>
+      {/* ══════ 60% OFF PROMO BANNER → /collection/sale ══════ */}
+      <TouchableOpacity activeOpacity={0.9} style={s.promoWrap} onPress={() => router.push('/collection/sale')}>
         <Image source={FIGMA.promoBg} style={s.promoImg} resizeMode="cover" />
         <View style={s.promoOverlay}>
           <Text style={s.promoTitle}>60% OFF!</Text>
@@ -219,7 +218,7 @@ export default function HomeScreen() {
             <Text style={s.promoBtnText}>SHOP NOW</Text>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
 
       {/* ══════ BESTSELLER ══════ */}
       <View style={s.section}>
@@ -278,7 +277,7 @@ export default function HomeScreen() {
         </ScrollView>
       </View>
 
-      {/* ══════ SHOP BY BRAND ══════ */}
+      {/* ══════ SHOP BY BRAND — all 10 from tinyaura.us ══════ */}
       <View style={s.section}>
         <Text style={s.brandSectionTitle}>Shop by Brand</Text>
         <View style={s.brandGrid}>
@@ -293,8 +292,26 @@ export default function HomeScreen() {
           <TouchableOpacity style={s.brandCell} onPress={() => router.push('/collection/dior')}>
             <Text style={s.brandDior}>ChristianDior</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={s.brandCell} onPress={() => router.push('/collection/mfk')}>
+          <TouchableOpacity style={s.brandCell} onPress={() => router.push('/collection/maison-francis-kurkdjian')}>
             <Text style={s.brandMFK}>{'Maison\nFrancis Kurkdjian\nParis'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.brandCell} onPress={() => router.push('/collection/armani')}>
+            <Text style={s.brandGeneric}>ARMANI</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.brandCell} onPress={() => router.push('/collection/gucci')}>
+            <Text style={s.brandGeneric}>GUCCI</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.brandCell} onPress={() => router.push('/collection/hermes')}>
+            <Text style={s.brandHermes}>HERMÈS</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.brandCell} onPress={() => router.push('/collection/kilian-paris')}>
+            <Text style={s.brandKilian}>KILIAN{'\n'}PARIS</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.brandCell} onPress={() => router.push('/collection/louis-vuitton')}>
+            <Text style={s.brandLV}>LOUIS VUITTON</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.brandCell} onPress={() => router.push('/collection/parfums-de-marly-paris')}>
+            <Text style={s.brandPDM}>{'Parfums de\nMarly Paris'}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -475,6 +492,25 @@ const s = StyleSheet.create({
   brandMFK: {
     fontFamily: Platform.OS === 'web' ? 'Georgia, serif' : 'serif',
     fontSize: 14, color: '#000000', textAlign: 'center', lineHeight: 20,
+  },
+  brandGeneric: {
+    fontSize: 18, fontWeight: '700', color: '#000000', letterSpacing: 3,
+  },
+  brandHermes: {
+    fontFamily: Platform.OS === 'web' ? 'Georgia, serif' : 'serif',
+    fontSize: 18, fontWeight: '700', color: '#000000', letterSpacing: 2,
+  },
+  brandKilian: {
+    fontSize: 14, fontWeight: '600', color: '#000000',
+    textAlign: 'center', letterSpacing: 3, lineHeight: 20,
+  },
+  brandLV: {
+    fontSize: 13, fontWeight: '700', color: '#000000', letterSpacing: 2,
+  },
+  brandPDM: {
+    fontFamily: Platform.OS === 'web' ? 'Georgia, serif' : 'serif',
+    fontSize: 13, fontStyle: 'italic', color: '#000000',
+    textAlign: 'center', lineHeight: 19,
   },
 
   // ── Trust badges ──
