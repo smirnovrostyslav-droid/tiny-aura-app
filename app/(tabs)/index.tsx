@@ -34,31 +34,34 @@ const FIGMA = {
   catGifts: require('../../assets/figma/cat_gifts.png'),
 };
 
-// ─── Hero slider banners ────────────────────────────────
+// ─── Hero slider banners (clean images, text added in code) ─
 const SLIDES = [
   {
     id: '1',
-    image: FIGMA.heroBanner,
+    image: require('../../assets/banners/slide_1_clean.png'),
     title: 'New Arrivals',
     desc: "Introducing our latest products,\nmade especially for the season.\nShop your favorites before\nthey're gone!",
     btnText: 'SHOP NOW',
     link: '/collection/new-arrivals',
+    showOverlay: true,
   },
   {
     id: '2',
-    image: require('../../assets/banners/slider_2.png'),
-    title: 'Best Sellers',
-    desc: "Discover our most loved\nfragrances. Top picks chosen\nby thousands of happy\ncustomers.",
+    image: require('../../assets/banners/slide_2_clean.png'),
+    title: 'Discovery Sets',
+    desc: "Explore our curated selection\nof premium fragrances.\nFind your signature scent\nwith our sample collections.",
     btnText: 'SHOP NOW',
-    link: '/collection/bestsellers',
+    link: '/collection/discovery-sets',
+    showOverlay: true,
   },
   {
     id: '3',
-    image: require('../../assets/banners/slider_3.png'),
-    title: 'Gift Sets',
-    desc: "Perfect presents for every\noccasion. Beautifully wrapped\nand ready to delight\nsomeone special.",
-    btnText: 'SHOP NOW',
-    link: '/collection/gift-sets',
+    image: require('../../assets/banners/slide_3_clean.png'),
+    title: 'Spin & Win',
+    desc: "Try your luck! Spin the wheel\nfor a chance to win up to\n15% off on premium\nfragrances. Limited time only!",
+    btnText: 'Browse All Scents',
+    link: '/collection/all',
+    showOverlay: true,
   },
 ];
 
