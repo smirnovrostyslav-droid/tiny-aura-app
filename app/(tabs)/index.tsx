@@ -11,11 +11,44 @@ import {
   FlatList,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Modal,
+  Animated,
+  Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ShopifyProduct } from '../../types/shopify';
 import { getCollectionProducts } from '../../services/shopify';
 import { useCart } from '../../services/cartContext';
+
+// ─── Menu sections — synced with tinyaura.us mobile drawer ──
+const MENU_SECTIONS = [
+  {
+    title: 'Shop by Category',
+    items: [
+      { label: "Women's Perfumes", route: '/collection/women' },
+      { label: "Men's Cologne", route: '/collection/men' },
+      { label: 'Unisex', route: '/collection/unisex' },
+      { label: 'Shop All', route: '/collection/all' },
+    ],
+  },
+  {
+    title: 'Featured Collections',
+    items: [
+      { label: 'New Arrivals', route: '/collection/new' },
+      { label: 'Best Sellers', route: '/collection/best-sellers' },
+      { label: 'Gift Sets', route: '/collection/gift-sets' },
+      { label: 'Sale', route: '/collection/sale' },
+    ],
+  },
+  {
+    title: 'Account & More',
+    items: [
+      { label: 'About Us', route: '/(tabs)/account' },
+      { label: 'Contact', route: '/(tabs)/account' },
+      { label: 'Cart', route: '/(tabs)/cart' },
+    ],
+  },
+];
 
 // Fixed width for consistent mobile layout
 const W = 390;
@@ -86,6 +119,7 @@ export default function HomeScreen() {
   const [bestsellers, setBestsellers] = useState<ShopifyProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeSlide, setActiveSlide] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
   const sliderRef = useRef<FlatList>(null);
 
   useEffect(() => { loadData(); }, []);
@@ -135,9 +169,12 @@ export default function HomeScreen() {
         <Text style={s.topBarText}>Free US shipping on orders over $50</Text>
       </View>
 
+      {/* ══════ MENU DRAWER ══════ */}
+      <MenuDrawer visible={menuOpen} onClose={() => setMenuOpen(false)} router={router} />
+
       {/* ══════ HEADER ══════ */}
       <View style={s.header}>
-        <TouchableOpacity style={s.headerBtn}>
+        <TouchableOpacity style={s.headerBtn} onPress={() => setMenuOpen(true)}>
           <Text style={{ fontSize: 20, color: '#1a1a1a' }}>☰</Text>
         </TouchableOpacity>
         <Image source={FIGMA.logo} style={s.logo} resizeMode="contain" />
@@ -340,6 +377,57 @@ function TrustBadge({ icon, title, desc, last }: { icon: string; title: string; 
   );
 }
 
+// ─── Menu Drawer Component ──────────────────────────────
+function MenuDrawer({ visible, onClose, router }: { visible: boolean; onClose: () => void; router: any }) {
+  const [expandedSection, setExpandedSection] = useState<number | null>(0);
+
+  if (!visible) return null;
+
+  return (
+    <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
+      <View style={s.drawerOverlay}>
+        <Pressable style={s.drawerBackdrop} onPress={onClose} />
+        <View style={s.drawer}>
+          {/* Close button */}
+          <View style={s.drawerHeader}>
+            <Text style={s.drawerLogo}>TINY AURA</Text>
+            <TouchableOpacity onPress={onClose} style={s.drawerClose}>
+              <Text style={{ fontSize: 24, color: '#1a1a1a' }}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={s.drawerContent} showsVerticalScrollIndicator={false}>
+            {MENU_SECTIONS.map((section, sIdx) => (
+              <View key={sIdx} style={s.drawerSection}>
+                <TouchableOpacity
+                  style={s.drawerSectionHeader}
+                  onPress={() => setExpandedSection(expandedSection === sIdx ? null : sIdx)}
+                >
+                  <Text style={s.drawerSectionTitle}>{section.title}</Text>
+                  <Text style={s.drawerChevron}>{expandedSection === sIdx ? '−' : '+'}</Text>
+                </TouchableOpacity>
+
+                {expandedSection === sIdx && section.items.map((item, iIdx) => (
+                  <TouchableOpacity
+                    key={iIdx}
+                    style={s.drawerItem}
+                    onPress={() => {
+                      onClose();
+                      router.push(item.route as any);
+                    }}
+                  >
+                    <Text style={s.drawerItemText}>{item.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════
 // All measurements for 390px width (iPhone 14 Pro)
 // ═══════════════════════════════════════════════════════════
@@ -511,6 +599,48 @@ const s = StyleSheet.create({
     fontFamily: Platform.OS === 'web' ? 'Georgia, serif' : 'serif',
     fontSize: 13, fontStyle: 'italic', color: '#000000',
     textAlign: 'center', lineHeight: 19,
+  },
+
+  // ── Menu Drawer ──
+  drawerOverlay: {
+    flex: 1, flexDirection: 'row',
+  },
+  drawerBackdrop: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  drawer: {
+    position: 'absolute', top: 0, left: 0, bottom: 0,
+    width: 300, backgroundColor: '#FFFFFF',
+    ...(Platform.OS === 'web' ? { boxShadow: '4px 0 20px rgba(0,0,0,0.15)' } : {}),
+  },
+  drawerHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingTop: 50, paddingBottom: 16,
+    borderBottomWidth: 1, borderBottomColor: '#eee',
+  },
+  drawerLogo: {
+    fontSize: 18, fontWeight: '700', color: '#1a1a1a', letterSpacing: 2,
+  },
+  drawerClose: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
+  drawerContent: { flex: 1, paddingTop: 8 },
+  drawerSection: {
+    borderBottomWidth: 1, borderBottomColor: '#f0f0f0',
+  },
+  drawerSectionHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingVertical: 16,
+  },
+  drawerSectionTitle: {
+    fontSize: 14, fontWeight: '700', color: '#1a1a1a',
+    letterSpacing: 0.5, textTransform: 'uppercase',
+  },
+  drawerChevron: { fontSize: 20, color: '#999' },
+  drawerItem: {
+    paddingHorizontal: 20, paddingVertical: 14,
+    backgroundColor: '#fafafa',
+  },
+  drawerItemText: {
+    fontSize: 15, color: '#333', fontWeight: '400',
   },
 
   // ── Trust badges ──
