@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,9 @@ import {
   Image,
   ActivityIndicator,
   Platform,
+  FlatList,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ShopifyProduct } from '../../types/shopify';
@@ -16,6 +19,7 @@ import { useCart } from '../../services/cartContext';
 
 // Fixed width for consistent mobile layout
 const W = 390;
+const HERO_W = W - 32; // 358px with 16px margins
 
 // ─── Images from Figma ─────────────────────────────────
 const FIGMA = {
@@ -29,6 +33,34 @@ const FIGMA = {
   catTravel: require('../../assets/figma/cat_travel.png'),
   catGifts: require('../../assets/figma/cat_gifts.png'),
 };
+
+// ─── Hero slider banners ────────────────────────────────
+const SLIDES = [
+  {
+    id: '1',
+    image: FIGMA.heroBanner,
+    title: 'New Arrivals',
+    desc: "Introducing our latest products,\nmade especially for the season.\nShop your favorites before\nthey're gone!",
+    btnText: 'SHOP NOW',
+    link: '/collection/new-arrivals',
+  },
+  {
+    id: '2',
+    image: require('../../assets/banners/slider_2.png'),
+    title: 'Best Sellers',
+    desc: "Discover our most loved\nfragrances. Top picks chosen\nby thousands of happy\ncustomers.",
+    btnText: 'SHOP NOW',
+    link: '/collection/bestsellers',
+  },
+  {
+    id: '3',
+    image: require('../../assets/banners/slider_3.png'),
+    title: 'Gift Sets',
+    desc: "Perfect presents for every\noccasion. Beautifully wrapped\nand ready to delight\nsomeone special.",
+    btnText: 'SHOP NOW',
+    link: '/collection/gift-sets',
+  },
+];
 
 const ICONS = {
   navSearch: require('../../assets/icons/nav_search.png'),
@@ -51,8 +83,30 @@ export default function HomeScreen() {
   const { getCartItemCount } = useCart();
   const [bestsellers, setBestsellers] = useState<ShopifyProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const sliderRef = useRef<FlatList>(null);
 
   useEffect(() => { loadData(); }, []);
+
+  // Auto-scroll every 4 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveSlide((prev) => {
+        const next = (prev + 1) % SLIDES.length;
+        sliderRef.current?.scrollToOffset({ offset: next * HERO_W, animated: true });
+        return next;
+      });
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const onSliderScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const x = e.nativeEvent.contentOffset.x;
+    const index = Math.round(x / HERO_W);
+    if (index >= 0 && index < SLIDES.length) {
+      setActiveSlide(index);
+    }
+  }, []);
 
   async function loadData() {
     try {
@@ -103,23 +157,42 @@ export default function HomeScreen() {
         <Text style={s.saleText}>75% OFF — Sale! Limited Time Only →</Text>
       </View>
 
-      {/* ══════ HERO BANNER — image with text overlay ══════ */}
-      <TouchableOpacity
-        activeOpacity={0.95}
-        style={s.heroWrap}
-        onPress={() => router.push('/collection/new-arrivals')}
-      >
-        <Image source={FIGMA.heroBanner} style={s.heroImg} resizeMode="cover" />
-        <View style={s.heroOverlay}>
-          <Text style={s.heroTitle}>New Arrivals</Text>
-          <Text style={s.heroDesc}>
-            Introducing our latest products,{'\n'}made especially for the season.{'\n'}Shop your favorites before{'\n'}they're gone!
-          </Text>
-          <View style={s.heroBtn}>
-            <Text style={s.heroBtnText}>SHOP NOW</Text>
-          </View>
+      {/* ══════ HERO SLIDER ══════ */}
+      <View style={s.heroWrap}>
+        <FlatList
+          ref={sliderRef}
+          data={SLIDES}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onScroll={onSliderScroll}
+          scrollEventThrottle={16}
+          keyExtractor={(item) => item.id}
+          getItemLayout={(_, index) => ({ length: HERO_W, offset: HERO_W * index, index })}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              activeOpacity={0.95}
+              style={s.slide}
+              onPress={() => router.push(item.link as any)}
+            >
+              <Image source={item.image} style={s.heroImg} resizeMode="cover" />
+              <View style={s.heroOverlay}>
+                <Text style={s.heroTitle}>{item.title}</Text>
+                <Text style={s.heroDesc}>{item.desc}</Text>
+                <View style={s.heroBtn}>
+                  <Text style={s.heroBtnText}>{item.btnText}</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+        />
+        {/* Dots */}
+        <View style={s.dots}>
+          {SLIDES.map((_, i) => (
+            <View key={i} style={[s.dot, i === activeSlide && s.dotActive]} />
+          ))}
         </View>
-      </TouchableOpacity>
+      </View>
 
       {/* ══════ CATEGORY CIRCLES ══════ */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.catRow}>
@@ -277,14 +350,18 @@ const s = StyleSheet.create({
   saleStrip: { backgroundColor: '#3a2313', paddingVertical: 8, alignItems: 'center' },
   saleText: { color: '#FFFFFF', fontSize: 12, fontWeight: '500' },
 
-  // ── Hero Banner — position: relative with absolute overlay ──
+  // ── Hero Slider ──
   heroWrap: {
     marginHorizontal: 16, marginTop: 12,
     borderRadius: 16, overflow: 'hidden',
+  },
+  slide: {
+    width: HERO_W,
+    height: 220,
     position: 'relative',
   },
   heroImg: {
-    width: W - 32,
+    width: HERO_W,
     height: 220,
   },
   heroOverlay: {
@@ -294,6 +371,18 @@ const s = StyleSheet.create({
     paddingLeft: 20,
     paddingTop: 24,
     justifyContent: 'flex-start',
+  },
+  dots: {
+    flexDirection: 'row', justifyContent: 'center',
+    paddingVertical: 10, gap: 6,
+  },
+  dot: {
+    width: 8, height: 8, borderRadius: 4,
+    backgroundColor: '#d9d9d9',
+  },
+  dotActive: {
+    width: 20, backgroundColor: '#1a1a1a',
+    borderRadius: 4,
   },
   heroTitle: {
     fontSize: 22, fontWeight: '700', color: '#000000',
