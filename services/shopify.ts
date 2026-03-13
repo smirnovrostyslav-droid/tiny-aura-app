@@ -223,6 +223,177 @@ export async function searchProducts(query: string): Promise<ShopifyProduct[]> {
   return data.products.edges.map((edge) => edge.node);
 }
 
+// Get products by their IDs (for wishlist)
+export async function getProductsByIds(ids: string[]): Promise<ShopifyProduct[]> {
+  if (ids.length === 0) return [];
+
+  const query = `
+    query GetProductsByIds($ids: [ID!]!) {
+      nodes(ids: $ids) {
+        ... on Product {
+          id
+          handle
+          title
+          description
+          images(first: 3) {
+            edges {
+              node {
+                url
+                altText
+              }
+            }
+          }
+          priceRange {
+            minVariantPrice {
+              amount
+              currencyCode
+            }
+          }
+          variants(first: 10) {
+            edges {
+              node {
+                id
+                title
+                price {
+                  amount
+                  currencyCode
+                }
+                availableForSale
+              }
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const data = await shopifyFetch<{ nodes: (ShopifyProduct | null)[] }>(query, { ids });
+  return data.nodes.filter((n): n is ShopifyProduct => n !== null && n.id !== undefined);
+}
+
+// Shopify Customer API — Login
+export async function customerLogin(email: string, password: string): Promise<{ token: string; expiresAt: string }> {
+  const mutation = `
+    mutation customerAccessTokenCreate($input: CustomerAccessTokenCreateInput!) {
+      customerAccessTokenCreate(input: $input) {
+        customerAccessToken {
+          accessToken
+          expiresAt
+        }
+        customerUserErrors {
+          code
+          field
+          message
+        }
+      }
+    }
+  `;
+
+  const data = await shopifyFetch<{
+    customerAccessTokenCreate: {
+      customerAccessToken: { accessToken: string; expiresAt: string } | null;
+      customerUserErrors: Array<{ code: string; field: string[]; message: string }>;
+    };
+  }>(mutation, { input: { email, password } });
+
+  const result = data.customerAccessTokenCreate;
+  if (result.customerUserErrors.length > 0) {
+    throw new Error(result.customerUserErrors[0].message);
+  }
+  if (!result.customerAccessToken) {
+    throw new Error('Login failed');
+  }
+  return { token: result.customerAccessToken.accessToken, expiresAt: result.customerAccessToken.expiresAt };
+}
+
+// Shopify Customer API — Register
+export async function customerRegister(email: string, password: string, firstName: string, lastName: string): Promise<{ customerId: string }> {
+  const mutation = `
+    mutation customerCreate($input: CustomerCreateInput!) {
+      customerCreate(input: $input) {
+        customer {
+          id
+          email
+          firstName
+          lastName
+        }
+        customerUserErrors {
+          code
+          field
+          message
+        }
+      }
+    }
+  `;
+
+  const data = await shopifyFetch<{
+    customerCreate: {
+      customer: { id: string; email: string; firstName: string; lastName: string } | null;
+      customerUserErrors: Array<{ code: string; field: string[]; message: string }>;
+    };
+  }>(mutation, { input: { email, password, firstName, lastName } });
+
+  const result = data.customerCreate;
+  if (result.customerUserErrors.length > 0) {
+    throw new Error(result.customerUserErrors[0].message);
+  }
+  if (!result.customer) {
+    throw new Error('Registration failed');
+  }
+  return { customerId: result.customer.id };
+}
+
+// Shopify Customer API — Get customer info
+export async function getCustomer(accessToken: string): Promise<{
+  id: string; email: string; firstName: string; lastName: string;
+  orders: Array<{ id: string; orderNumber: number; totalPrice: string; processedAt: string; fulfillmentStatus: string }>;
+}> {
+  const query = `
+    query GetCustomer($token: String!) {
+      customer(customerAccessToken: $token) {
+        id
+        email
+        firstName
+        lastName
+        orders(first: 10, sortKey: PROCESSED_AT, reverse: true) {
+          edges {
+            node {
+              id
+              orderNumber
+              totalPrice {
+                amount
+                currencyCode
+              }
+              processedAt
+              fulfillmentStatus
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const data = await shopifyFetch<{
+    customer: {
+      id: string; email: string; firstName: string; lastName: string;
+      orders: { edges: Array<{ node: any }> };
+    };
+  }>(query, { token: accessToken });
+
+  if (!data.customer) throw new Error('Invalid access token');
+
+  return {
+    ...data.customer,
+    orders: data.customer.orders.edges.map(e => ({
+      id: e.node.id,
+      orderNumber: e.node.orderNumber,
+      totalPrice: `$${parseFloat(e.node.totalPrice.amount).toFixed(2)}`,
+      processedAt: e.node.processedAt,
+      fulfillmentStatus: e.node.fulfillmentStatus,
+    })),
+  };
+}
+
 // Create cart
 export async function createCart(): Promise<ShopifyCart> {
   const mutation = `

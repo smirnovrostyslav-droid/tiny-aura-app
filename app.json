@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "tiny-aura-app",
+    "name": "Tiny Aura",
     "slug": "tiny-aura-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,24 +10,39 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#f2ebde"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "us.tinyaura.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "CFBundleDisplayName": "Tiny Aura",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "us.tinyaura.app",
+      "versionCode": 2,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#f2ebde",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false
+        "backgroundImage": "./assets/android-icon-background.png"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
-    "plugins": ["expo-router"]
+    "plugins": [
+      "expo-router"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "2a928c33-7b14-4704-a2f5-7544d6da758a"
+      },
+      "router": {}
+    },
+    "owner": "smirnovrostyslav"
   }
 }

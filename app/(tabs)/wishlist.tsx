@@ -11,7 +11,7 @@ import { useWishlist } from '../../services/wishlistContext';
 import { ShopifyProduct } from '../../types/shopify';
 import { Colors, Spacing, Typography } from '../../constants/theme';
 import { ProductCard } from '../../components/ProductCard';
-import { getCollectionProducts } from '../../services/shopify';
+import { getProductsByIds } from '../../services/shopify';
 
 export default function WishlistScreen() {
   const router = useRouter();
@@ -31,10 +31,7 @@ export default function WishlistScreen() {
     }
 
     try {
-      // Load products from new-arrivals collection as a demo
-      // In production, you'd fetch products by IDs
-      const allProducts = await getCollectionProducts('new-arrivals').catch(() => []);
-      const wishlistProducts = allProducts.filter(p => wishlist.includes(p.id));
+      const wishlistProducts = await getProductsByIds(wishlist);
       setProducts(wishlistProducts);
     } catch (error) {
       console.error('Error loading wishlist products:', error);

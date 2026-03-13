@@ -18,8 +18,8 @@ function AppContent() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="product/[handle]" options={{ title: 'Product Details', presentation: 'card' }} />
-        <Stack.Screen name="collection/[handle]" options={{ title: 'Collection', presentation: 'card' }} />
+        <Stack.Screen name="product/[handle]" options={{ headerShown: false, presentation: 'card' }} />
+        <Stack.Screen name="collection/[handle]" options={{ headerShown: false, presentation: 'card' }} />
       </Stack>
     </>
   );

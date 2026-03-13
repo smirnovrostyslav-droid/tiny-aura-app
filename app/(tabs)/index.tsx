@@ -60,11 +60,12 @@ const FIGMA = {
   heroBanner: require('../../assets/figma/hero_banner.png'),
   product: require('../../assets/figma/product_baccarat.png'),
   promoBg: require('../../assets/figma/promo_60off_bg.png'),
-  catDeals: require('../../assets/figma/cat_deals.png'),
-  catWomen: require('../../assets/figma/cat_women.png'),
-  catMen: require('../../assets/figma/cat_men.png'),
-  catTravel: require('../../assets/figma/cat_travel.png'),
-  catGifts: require('../../assets/figma/cat_gifts.png'),
+  // Category images from tinyaura.us Shopify CDN
+  catDeals: require('../../assets/figma/cat_deals_site.png'),
+  catWomen: require('../../assets/figma/cat_women_site.jpg'),
+  catMen: require('../../assets/figma/cat_men_site.webp'),
+  catNew: require('../../assets/figma/cat_new_site.jpg'),
+  catGifts: require('../../assets/figma/cat_gifts_site.png'),
 };
 
 // ─── Hero slider banners (clean images, text added in code) ─
@@ -96,6 +97,13 @@ const SLIDES = [
   },
 ];
 
+// ── How does it work steps ──
+const STEPS = [
+  { num: '1', title: 'Pick Your Scent', desc: 'Shop 500+ authentic fragrances — from bestsellers to niche finds.', img: require('../../assets/steps/step1.png') },
+  { num: '2', title: 'Choose Your Size', desc: 'Start small with sample vials or sprays, or upgrade to 5 ml and 10 ml travel sprays.', img: require('../../assets/steps/step2.png') },
+  { num: '3', title: 'Fast Shipping, Always', desc: 'Most orders ship within one business day, so you can enjoy your fragrance without the wait.', img: require('../../assets/steps/step3.png') },
+];
+
 const ICONS = {
   navSearch: require('../../assets/icons/nav_search.png'),
   navCart: require('../../assets/icons/nav_cart.png'),
@@ -104,14 +112,54 @@ const ICONS = {
   trustShipping: require('../../assets/icons/trust_shipping.png'),
 };
 
-// Categories synced with tinyaura.us/collections/*
-const CATEGORIES = [
-  { title: "Today's\nDeals", handle: 'sale', img: FIGMA.catDeals },
-  { title: "Women's\nParfume", handle: 'women', img: FIGMA.catWomen },
+// Categories synced with tinyaura.us "Shop By Department"
+const CATEGORIES_BASE = [
+  { title: "Today's\nDeal", handle: 'sale', img: FIGMA.catDeals },
+  { title: "Women's\nPerfume", handle: 'women', img: FIGMA.catWomen },
   { title: "Men's\nCologne", handle: 'men', img: FIGMA.catMen },
-  { title: 'Travel\nSprays', handle: 'unisex', img: FIGMA.catTravel },
+  { title: 'New\nArrivals', handle: 'new', img: FIGMA.catNew },
   { title: 'Gift\nSets', handle: 'gift-sets', img: FIGMA.catGifts },
 ];
+
+// Infinite loop: repeat 20 times, start from middle
+const CAT_REPEATS = 20;
+const CATEGORIES_LOOP = Array.from({ length: CAT_REPEATS }, (_, r) =>
+  CATEGORIES_BASE.map((c, i) => ({ ...c, _key: `${r}-${i}` }))
+).flat();
+const CAT_ITEM_W = 74; // 64 circle + 10 gap
+const CAT_MID_OFFSET = Math.floor(CAT_REPEATS / 2) * CATEGORIES_BASE.length * CAT_ITEM_W;
+
+// ── Brands carousel data ──
+const BRAND_ITEM_W = Math.floor((390 - 32) / 2); // half screen = ~179
+const BRAND_LOGOS = {
+  creed: require('../../assets/brands/creed.png'),
+  tomford: require('../../assets/brands/tom_ford.png'),
+  dior: require('../../assets/brands/christiandior.png'),
+  mfk: require('../../assets/brands/mfk.png'),
+  armani: require('../../assets/brands/armani.png'),
+  gucci: require('../../assets/brands/gucci.png'),
+  hermes: require('../../assets/brands/hermes.png'),
+  kilian: require('../../assets/brands/kilian.png'),
+  lv: require('../../assets/brands/louisvuitton.png'),
+  pdm: require('../../assets/brands/pdm.png'),
+};
+const BRANDS_BASE = [
+  { handle: 'creed', logo: BRAND_LOGOS.creed },
+  { handle: 'tom-ford', logo: BRAND_LOGOS.tomford },
+  { handle: 'dior', logo: BRAND_LOGOS.dior },
+  { handle: 'maison-francis-kurkdjian', logo: BRAND_LOGOS.mfk },
+  { handle: 'armani', logo: BRAND_LOGOS.armani },
+  { handle: 'gucci', logo: BRAND_LOGOS.gucci },
+  { handle: 'hermes', logo: BRAND_LOGOS.hermes },
+  { handle: 'kilian-paris', logo: BRAND_LOGOS.kilian },
+  { handle: 'louis-vuitton', logo: BRAND_LOGOS.lv },
+  { handle: 'parfums-de-marly-paris', logo: BRAND_LOGOS.pdm },
+];
+const BRAND_REPEATS = 20;
+const BRANDS_LOOP = Array.from({ length: BRAND_REPEATS }, (_, r) =>
+  BRANDS_BASE.map((b, i) => ({ ...b, _key: `br-${r}-${i}` }))
+).flat();
+const BRAND_MID_OFFSET = Math.floor(BRAND_REPEATS / 2) * BRANDS_BASE.length * BRAND_ITEM_W;
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -121,6 +169,41 @@ export default function HomeScreen() {
   const [activeSlide, setActiveSlide] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const sliderRef = useRef<FlatList>(null);
+  const catRef = useRef<FlatList>(null);
+  const brandRef = useRef<FlatList>(null);
+
+  // Scroll carousels to middle on mount for infinite loop
+  useEffect(() => {
+    setTimeout(() => {
+      catRef.current?.scrollToOffset({ offset: CAT_MID_OFFSET, animated: false });
+      brandRef.current?.scrollToOffset({ offset: BRAND_MID_OFFSET, animated: false });
+    }, 100);
+  }, []);
+
+  // When category scroll reaches edges, silently jump back to middle
+  const onCatScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const x = e.nativeEvent.contentOffset.x;
+    const totalW = CATEGORIES_LOOP.length * CAT_ITEM_W;
+    const oneSetW = CATEGORIES_BASE.length * CAT_ITEM_W;
+    if (x < oneSetW * 2 || x > totalW - oneSetW * 2) {
+      // Find which item index within a set we're closest to
+      const itemInSet = Math.round(x / CAT_ITEM_W) % CATEGORIES_BASE.length;
+      const midOffset = CAT_MID_OFFSET + itemInSet * CAT_ITEM_W;
+      catRef.current?.scrollToOffset({ offset: midOffset, animated: false });
+    }
+  }, []);
+
+  // When brand scroll reaches edges, silently jump back to middle
+  const onBrandScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const x = e.nativeEvent.contentOffset.x;
+    const totalW = BRANDS_LOOP.length * BRAND_ITEM_W;
+    const oneSetW = BRANDS_BASE.length * BRAND_ITEM_W;
+    if (x < oneSetW * 2 || x > totalW - oneSetW * 2) {
+      const itemInSet = Math.round(x / BRAND_ITEM_W) % BRANDS_BASE.length;
+      const midOffset = BRAND_MID_OFFSET + itemInSet * BRAND_ITEM_W;
+      brandRef.current?.scrollToOffset({ offset: midOffset, animated: false });
+    }
+  }, []);
 
   useEffect(() => { loadData(); }, []);
 
@@ -233,17 +316,26 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* ══════ CATEGORY CIRCLES ══════ */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.catRow}>
-        {CATEGORIES.map((c, i) => (
-          <TouchableOpacity key={i} style={s.catItem} onPress={() => router.push(`/collection/${c.handle}`)}>
+      {/* ══════ CATEGORY CIRCLES — infinite swipeable carousel ══════ */}
+      <FlatList
+        ref={catRef}
+        data={CATEGORIES_LOOP}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={CAT_ITEM_W}
+        decelerationRate="fast"
+        onMomentumScrollEnd={onCatScrollEnd}
+        getItemLayout={(_, index) => ({ length: CAT_ITEM_W, offset: CAT_ITEM_W * index, index })}
+        keyExtractor={(item) => item._key}
+        renderItem={({ item: c }) => (
+          <TouchableOpacity style={s.catItem} onPress={() => router.push(`/collection/${c.handle}`)}>
             <View style={s.catCircle}>
-              <Image source={c.img} style={s.catCircleImg} resizeMode="cover" />
+              <Image source={c.img} style={c.handle === 'gift-sets' ? s.catCircleImgGift : s.catCircleImg} resizeMode="contain" />
             </View>
             <Text style={s.catLabel}>{c.title}</Text>
           </TouchableOpacity>
-        ))}
-      </ScrollView>
+        )}
+      />
 
       {/* ══════ 60% OFF PROMO BANNER → /collection/sale ══════ */}
       <TouchableOpacity activeOpacity={0.9} style={s.promoWrap} onPress={() => router.push('/collection/sale')}>
@@ -314,43 +406,51 @@ export default function HomeScreen() {
         </ScrollView>
       </View>
 
-      {/* ══════ SHOP BY BRAND — all 10 from tinyaura.us ══════ */}
+      {/* ══════ SHOP BY BRAND — infinite carousel ══════ */}
       <View style={s.section}>
         <Text style={s.brandSectionTitle}>Shop by Brand</Text>
-        <View style={s.brandGrid}>
-          <TouchableOpacity style={s.brandCell} onPress={() => router.push('/collection/creed')}>
-            <Text style={s.brandCreed}>CREED</Text>
-            <Text style={s.brandCreedX}>✕</Text>
-            <Text style={s.brandCreedYear}>1760</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.brandCell} onPress={() => router.push('/collection/tom-ford')}>
-            <Text style={s.brandTomFord}>TOM FORD</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.brandCell} onPress={() => router.push('/collection/dior')}>
-            <Text style={s.brandDior}>ChristianDior</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.brandCell} onPress={() => router.push('/collection/maison-francis-kurkdjian')}>
-            <Text style={s.brandMFK}>{'Maison\nFrancis Kurkdjian\nParis'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.brandCell} onPress={() => router.push('/collection/armani')}>
-            <Text style={s.brandGeneric}>ARMANI</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.brandCell} onPress={() => router.push('/collection/gucci')}>
-            <Text style={s.brandGeneric}>GUCCI</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.brandCell} onPress={() => router.push('/collection/hermes')}>
-            <Text style={s.brandHermes}>HERMÈS</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.brandCell} onPress={() => router.push('/collection/kilian-paris')}>
-            <Text style={s.brandKilian}>KILIAN{'\n'}PARIS</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.brandCell} onPress={() => router.push('/collection/louis-vuitton')}>
-            <Text style={s.brandLV}>LOUIS VUITTON</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.brandCell} onPress={() => router.push('/collection/parfums-de-marly-paris')}>
-            <Text style={s.brandPDM}>{'Parfums de\nMarly Paris'}</Text>
-          </TouchableOpacity>
-        </View>
+        <FlatList
+          ref={brandRef}
+          data={BRANDS_LOOP}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          snapToInterval={BRAND_ITEM_W}
+          decelerationRate="fast"
+          onMomentumScrollEnd={onBrandScrollEnd}
+          getItemLayout={(_, index) => ({ length: BRAND_ITEM_W, offset: BRAND_ITEM_W * index, index })}
+          keyExtractor={(item) => item._key}
+          renderItem={({ item: b }) => (
+            <TouchableOpacity style={s.brandCell} onPress={() => router.push(`/collection/${b.handle}`)}>
+              <Image source={b.logo} style={s.brandLogo} resizeMode="contain" />
+            </TouchableOpacity>
+          )}
+        />
+      </View>
+
+      {/* ══════ HOW DOES IT WORK — 3 steps slider ══════ */}
+      <View style={s.section}>
+        <Text style={s.howTitle}>How does it works</Text>
+        <Text style={s.howSub}>3 simple steps</Text>
+        <FlatList
+          data={STEPS}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(_, i) => `step-${i}`}
+          renderItem={({ item: step }) => (
+            <View style={s.stepSlide}>
+              <Image source={step.img} style={s.stepImg} resizeMode="contain" />
+              <View style={s.stepNumCircle}>
+                <Text style={s.stepNum}>{step.num}</Text>
+              </View>
+              <Text style={s.stepTitle}>{step.title}</Text>
+              <Text style={s.stepDesc}>{step.desc}</Text>
+            </View>
+          )}
+        />
+        <TouchableOpacity style={s.stepBtn} onPress={() => router.push('/collection/all')}>
+          <Text style={s.stepBtnText}>SHOP ALL PRODUCTS</Text>
+        </TouchableOpacity>
       </View>
 
       {/* ══════ TRUST BADGES ══════ */}
@@ -505,11 +605,12 @@ const s = StyleSheet.create({
   heroBtnText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
 
   // ── Categories ──
-  catRow: { paddingHorizontal: 12, paddingTop: 20, paddingBottom: 8, gap: 12 },
-  catItem: { alignItems: 'center', width: 68 },
-  catCircle: { width: 68, height: 68, borderRadius: 34, overflow: 'hidden', backgroundColor: '#f5e0d0' },
-  catCircleImg: { width: 68, height: 68 },
-  catLabel: { fontSize: 11, fontWeight: '500', color: '#1a1a1a', textAlign: 'center', marginTop: 6, lineHeight: 14 },
+  catRow: { paddingTop: 20, paddingBottom: 8 },
+  catItem: { alignItems: 'center', width: CAT_ITEM_W, paddingHorizontal: 5 },
+  catCircle: { width: 64, height: 64, borderRadius: 32, overflow: 'hidden', backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#eee', justifyContent: 'center', alignItems: 'center' },
+  catCircleImg: { width: 52, height: 52 },
+  catCircleImgGift: { width: 46, height: 46 },
+  catLabel: { fontSize: 10, fontWeight: '500', color: '#1a1a1a', textAlign: 'center', marginTop: 5, lineHeight: 13 },
 
   // ── 60% OFF promo — position: relative with absolute overlay ──
   promoWrap: {
@@ -564,42 +665,38 @@ const s = StyleSheet.create({
     fontFamily: Platform.OS === 'web' ? 'Georgia, serif' : 'serif',
     fontStyle: 'italic', color: '#000000', paddingHorizontal: 16, marginBottom: 16,
   },
-  brandGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16 },
-  brandCell: { width: (W - 32) / 2, height: 80, justifyContent: 'center', alignItems: 'center' },
-  brandCreed: {
+  brandCell: { width: BRAND_ITEM_W, height: 80, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderBottomWidth: 1, borderColor: '#eee' },
+  brandLogo: { width: BRAND_ITEM_W - 32, height: 50 },
+
+  // ── How Does It Work ──
+  howTitle: {
+    fontSize: 24, fontWeight: '700',
     fontFamily: Platform.OS === 'web' ? 'Georgia, serif' : 'serif',
-    fontSize: 26, fontWeight: '900', color: '#000000', letterSpacing: 4,
+    color: '#000', textAlign: 'center', marginBottom: 4,
   },
-  brandCreedX: { fontSize: 10, color: '#000000', marginTop: -4 },
-  brandCreedYear: { fontSize: 11, color: '#000000', marginTop: -2 },
-  brandTomFord: { fontSize: 20, fontWeight: '700', color: '#000000', letterSpacing: 2 },
-  brandDior: {
+  howSub: {
+    fontSize: 16, fontWeight: '400',
     fontFamily: Platform.OS === 'web' ? 'Georgia, serif' : 'serif',
-    fontSize: 20, fontStyle: 'italic', color: '#000000',
+    fontStyle: 'italic', color: '#444', textAlign: 'center', marginBottom: 16,
   },
-  brandMFK: {
+  stepSlide: { width: 390, alignItems: 'center', paddingHorizontal: 30 },
+  stepImg: { width: 220, height: 200, marginBottom: 12 },
+  stepNumCircle: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: '#1a1a1a',
+    justifyContent: 'center', alignItems: 'center', marginBottom: 10,
+  },
+  stepNum: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  stepTitle: {
+    fontSize: 20, fontWeight: '400',
     fontFamily: Platform.OS === 'web' ? 'Georgia, serif' : 'serif',
-    fontSize: 14, color: '#000000', textAlign: 'center', lineHeight: 20,
+    fontStyle: 'italic', color: '#000', textAlign: 'center', marginBottom: 8,
   },
-  brandGeneric: {
-    fontSize: 18, fontWeight: '700', color: '#000000', letterSpacing: 3,
+  stepDesc: { fontSize: 13, color: '#555', textAlign: 'center', lineHeight: 19, paddingHorizontal: 10 },
+  stepBtn: {
+    backgroundColor: '#770a0c', paddingVertical: 14, borderRadius: 8,
+    alignItems: 'center', marginHorizontal: 16, marginTop: 20,
   },
-  brandHermes: {
-    fontFamily: Platform.OS === 'web' ? 'Georgia, serif' : 'serif',
-    fontSize: 18, fontWeight: '700', color: '#000000', letterSpacing: 2,
-  },
-  brandKilian: {
-    fontSize: 14, fontWeight: '600', color: '#000000',
-    textAlign: 'center', letterSpacing: 3, lineHeight: 20,
-  },
-  brandLV: {
-    fontSize: 13, fontWeight: '700', color: '#000000', letterSpacing: 2,
-  },
-  brandPDM: {
-    fontFamily: Platform.OS === 'web' ? 'Georgia, serif' : 'serif',
-    fontSize: 13, fontStyle: 'italic', color: '#000000',
-    textAlign: 'center', lineHeight: 19,
-  },
+  stepBtnText: { color: '#fff', fontSize: 13, fontWeight: '700', letterSpacing: 1 },
 
   // ── Menu Drawer ──
   drawerOverlay: {
