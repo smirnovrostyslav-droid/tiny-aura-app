@@ -16,11 +16,12 @@ interface CartContextType {
   updateQuantity: (lineId: string, quantity: number) => Promise<void>;
   removeFromCart: (lineId: string) => Promise<void>;
   getCartItemCount: () => number;
+  refreshCart: () => Promise<void>;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-const CART_ID_KEY = '@tiny-aura-cart-id';
+const CART_ID_KEY = '@koa-cart-id';
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<ShopifyCart | null>(null);
@@ -55,24 +56,26 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function initializeNewCart() {
-    const newCart = await createCart();
-    setCart(newCart);
-    await AsyncStorage.setItem(CART_ID_KEY, newCart.id);
+    try {
+      const newCart = await createCart();
+      setCart(newCart);
+      await AsyncStorage.setItem(CART_ID_KEY, newCart.id);
+    } catch (error) {
+      console.error('Error initializing new cart:', error);
+    }
   }
 
   async function addToCart(variantId: string, quantity: number) {
     try {
-      if (!cart) {
-        await initializeNewCart();
-        // Re-fetch cart to ensure we have the latest state
-        const cartId = await AsyncStorage.getItem(CART_ID_KEY);
-        if (!cartId) throw new Error('Failed to create cart');
-        const updatedCart = await apiAddToCart(cartId, variantId, quantity);
-        setCart(updatedCart);
-      } else {
-        const updatedCart = await apiAddToCart(cart.id, variantId, quantity);
-        setCart(updatedCart);
+      let currentCartId = cart?.id;
+      if (!currentCartId) {
+        const newCart = await createCart();
+        setCart(newCart);
+        await AsyncStorage.setItem(CART_ID_KEY, newCart.id);
+        currentCartId = newCart.id;
       }
+      const updatedCart = await apiAddToCart(currentCartId, variantId, quantity);
+      setCart(updatedCart);
     } catch (error) {
       console.error('Error adding to cart:', error);
       throw error;
@@ -108,6 +111,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return cart.lines.edges.reduce((total, edge) => total + edge.node.quantity, 0);
   }
 
+  async function refreshCart() {
+    await loadCart();
+  }
+
   return (
     <CartContext.Provider
       value={{
@@ -117,6 +124,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         updateQuantity,
         removeFromCart,
         getCartItemCount,
+        refreshCart,
       }}
     >
       {children}

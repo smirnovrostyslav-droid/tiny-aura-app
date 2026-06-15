@@ -1,10 +1,13 @@
 {
   "expo": {
-    "name": "Tiny Aura",
+    "name": "Kiss of Aroma",
     "slug": "tiny-aura-app",
-    "version": "1.0.0",
+    "version": "1.1.1",
     "orientation": "portrait",
-    "scheme": "tinyaura",
+    "scheme": [
+      "kissofaroma",
+      "shop.71650345091"
+    ],
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
@@ -15,17 +18,17 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "us.tinyaura.app",
-      "buildNumber": "1",
+      "buildNumber": "9",
       "infoPlist": {
-        "CFBundleDisplayName": "Tiny Aura",
+        "CFBundleDisplayName": "Kiss of Aroma",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "us.tinyaura.app",
-      "versionCode": 2,
+      "package": "shop.kissofaroma.app",
+      "versionCode": 8,
       "adaptiveIcon": {
-        "backgroundColor": "#f2ebde",
+        "backgroundColor": "#ffffff",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png"
       }
@@ -35,7 +38,10 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-web-browser",
+      "expo-secure-store",
+      "expo-font"
     ],
     "extra": {
       "eas": {

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const WISHLIST_STORAGE_KEY = '@tiny_aura_wishlist';
+const WISHLIST_STORAGE_KEY = '@koa_wishlist';
 
 interface WishlistContextType {
   wishlist: string[];
@@ -43,10 +43,15 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function toggleWishlist(productId: string) {
-    const newWishlist = wishlist.includes(productId)
-      ? wishlist.filter(id => id !== productId)
-      : [...wishlist, productId];
-    await saveWishlist(newWishlist);
+    setWishlist(prev => {
+      const newWishlist = prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId];
+      AsyncStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(newWishlist)).catch(
+        (error) => console.error('Error saving wishlist:', error)
+      );
+      return newWishlist;
+    });
   }
 
   function isInWishlist(productId: string): boolean {

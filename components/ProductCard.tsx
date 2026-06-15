@@ -1,16 +1,20 @@
 import React from 'react';
-import { TouchableOpacity, Image, StyleSheet, Text, View } from 'react-native';
+import { TouchableOpacity, StyleSheet, Text, View, Platform } from 'react-native';
+import { Image } from 'expo-image';
 import { ShopifyProduct } from '../types/shopify';
-import { Colors, Spacing, Typography } from '../constants/theme';
 import { useWishlist } from '../services/wishlistContext';
+import { optimizeImageUrl } from '../services/shopify';
+
+const BADGE_GREEN = '#2E7D32';
+const BADGE_RED = '#C41E3A';
 
 interface ProductCardProps {
   product: ShopifyProduct;
   onPress: () => void;
-  showNewBadge?: boolean;
+  showBestSeller?: boolean;
 }
 
-export function ProductCard({ product, onPress, showNewBadge = false }: ProductCardProps) {
+export function ProductCard({ product, onPress, showBestSeller = false }: ProductCardProps) {
   const { isInWishlist, toggleWishlist } = useWishlist();
   const image = product.images.edges[0]?.node;
   const price = product.priceRange.minVariantPrice;
@@ -18,41 +22,57 @@ export function ProductCard({ product, onPress, showNewBadge = false }: ProductC
   const inWishlist = isInWishlist(product.id);
   const hasDiscount = comparePrice && parseFloat(comparePrice.amount) > parseFloat(price.amount);
 
+  // Calculate discount percentage
+  const discountPercent = hasDiscount && comparePrice
+    ? Math.round((1 - parseFloat(price.amount) / parseFloat(comparePrice.amount)) * 100)
+    : 0;
+
   return (
-    <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.8} accessibilityLabel={`${product.title}, from $${parseFloat(price.amount).toFixed(2)}`} accessibilityRole="button">
       <View style={styles.imageContainer}>
         {image ? (
           <Image
-            source={{ uri: image.url }}
+            source={{ uri: optimizeImageUrl(image.url, 400) }}
             style={styles.image}
-            resizeMode="contain"
+            contentFit="cover"
+            transition={200}
+            cachePolicy="memory-disk"
           />
         ) : (
           <View style={styles.placeholderImage}>
             <Text style={styles.placeholderText}>No Image</Text>
           </View>
         )}
-        
-        {/* BESTSELLER badge */}
-        {showNewBadge && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>BESTSELLER</Text>
-          </View>
-        )}
-        
+
+        {/* Badges */}
+        <View style={styles.badgeContainer}>
+          {showBestSeller && (
+            <View style={[styles.badge, { backgroundColor: BADGE_GREEN }]}>
+              <Text style={styles.badgeText}>Best Seller</Text>
+            </View>
+          )}
+          {discountPercent > 0 && (
+            <View style={[styles.badge, { backgroundColor: BADGE_RED }]}>
+              <Text style={styles.badgeText}>{discountPercent}% OFF</Text>
+            </View>
+          )}
+        </View>
+
         {/* Wishlist heart */}
         <TouchableOpacity
           style={styles.heartButton}
-          onPress={(e) => {
-            e.stopPropagation();
+          onPress={() => {
             toggleWishlist(product.id);
           }}
           activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+          accessibilityRole="button"
         >
           <Text style={styles.heartIcon}>{inWishlist ? '❤️' : '🤍'}</Text>
         </TouchableOpacity>
       </View>
-      
+
       <View style={styles.info}>
         <Text style={styles.title} numberOfLines={2}>
           {product.title}
@@ -61,12 +81,13 @@ export function ProductCard({ product, onPress, showNewBadge = false }: ProductC
           <Text style={styles.vendor} numberOfLines={1}>{product.vendor}</Text>
         ) : null}
         <View style={styles.priceRow}>
-          {hasDiscount && (
+          <Text style={styles.priceFrom}>From </Text>
+          {hasDiscount && comparePrice && (
             <Text style={styles.priceOriginal}>
               ${parseFloat(comparePrice.amount).toFixed(2)}
             </Text>
           )}
-          <Text style={styles.price}>
+          <Text style={[styles.price, hasDiscount && styles.priceOnSale]}>
             ${parseFloat(price.amount).toFixed(2)}
           </Text>
         </View>
@@ -78,17 +99,18 @@ export function ProductCard({ product, onPress, showNewBadge = false }: ProductC
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    margin: Spacing.xs,
-    backgroundColor: Colors.white,
-    borderRadius: 8,
+    margin: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
   },
   imageContainer: {
-    aspectRatio: 0.85,
-    backgroundColor: '#FAF5F0',
+    aspectRatio: 1 / 1.3,
+    backgroundColor: '#f8f8f8',
     position: 'relative',
+    borderRadius: 12,
+    overflow: 'hidden',
+    padding: 0,
   },
   image: {
     width: '100%',
@@ -99,67 +121,84 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.lightGray,
+    backgroundColor: '#f5f5f5',
   },
   placeholderText: {
-    ...Typography.caption,
+    fontSize: 12,
+    color: '#999',
+  },
+  badgeContainer: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    gap: 4,
   },
   badge: {
-    position: 'absolute',
-    top: Spacing.sm,
-    left: Spacing.sm,
-    backgroundColor: Colors.badgeRed,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 100,
   },
   badgeText: {
-    color: Colors.white,
+    color: '#FFFFFF',
     fontSize: 9,
-    fontWeight: '700',
-    textTransform: 'uppercase',
+    fontWeight: '600',
   },
   heartButton: {
     position: 'absolute',
-    top: Spacing.sm,
-    right: Spacing.sm,
-    width: 32,
-    height: 32,
+    top: 8,
+    right: 8,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    borderRadius: 22,
   },
   heartIcon: {
-    fontSize: 24,
+    fontSize: 18,
   },
   info: {
-    padding: Spacing.sm,
+    paddingHorizontal: 6,
+    paddingTop: 10,
+    paddingBottom: 12,
   },
   title: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.black,
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#000',
+    lineHeight: 20,
     marginBottom: 2,
   },
   vendor: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '400',
-    color: Colors.mediumGray,
+    color: '#555',
     marginBottom: 4,
   },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    flexWrap: 'wrap',
     marginTop: 4,
   },
+  priceFrom: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#000',
+  },
   priceOriginal: {
-    fontSize: 12,
-    color: '#999999',
+    fontSize: 14,
+    color: '#000',
     textDecorationLine: 'line-through',
+    marginRight: 6,
   },
   price: {
     fontSize: 14,
-    fontWeight: '700',
-    color: Colors.black,
+    fontWeight: '400',
+    color: '#000',
+  },
+  priceOnSale: {
+    color: BADGE_RED,
+    fontWeight: '600',
   },
 });

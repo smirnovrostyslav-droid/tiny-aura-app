@@ -14,6 +14,7 @@ export interface ShopifyProductVariant {
   id: string;
   title: string;
   price: ShopifyMoney;
+  compareAtPrice?: ShopifyMoney | null;
   availableForSale: boolean;
   selectedOptions: Array<{
     name: string;
@@ -34,6 +35,7 @@ export interface ShopifyProduct {
   handle: string;
   title: string;
   description: string;
+  vendor?: string;
   images: {
     edges: Array<{
       node: ShopifyImage;
@@ -41,7 +43,10 @@ export interface ShopifyProduct {
   };
   priceRange: {
     minVariantPrice: ShopifyMoney;
-    maxVariantPrice: ShopifyMoney;
+    maxVariantPrice?: ShopifyMoney;
+  };
+  compareAtPriceRange?: {
+    minVariantPrice: ShopifyMoney;
   };
   variants: {
     edges: Array<{
@@ -56,7 +61,7 @@ export interface ShopifyCollection {
   title: string;
   description?: string;
   image?: ShopifyImage;
-  products: {
+  products?: {
     edges: Array<{
       node: ShopifyProduct;
     }>;

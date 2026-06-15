@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,25 +8,33 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   ScrollView,
+  Platform,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShopifyProduct, ShopifyCollection } from '../../types/shopify';
 import { searchProducts, getCollections } from '../../services/shopify';
-import { Colors, Spacing, Typography } from '../../constants/theme';
 import { ProductCard } from '../../components/ProductCard';
+import { Ionicons } from '@expo/vector-icons';
+
+const BURGUNDY = '#780b0c';
 
 const POPULAR_SEARCHES = [
   'Creed', 'Tom Ford', 'Dior', 'YSL', 'Versace',
   'Men\'s Cologne', 'Women\'s Perfume', 'Gift Sets',
+  'Baccarat Rouge', 'Aventus',
 ];
 
 export default function SearchScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ShopifyProduct[]>([]);
   const [collections, setCollections] = useState<ShopifyCollection[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadCollections();
@@ -43,7 +51,6 @@ export default function SearchScreen() {
 
   async function handleSearch() {
     if (!query.trim()) return;
-
     setLoading(true);
     setSearched(true);
     try {
@@ -59,21 +66,53 @@ export default function SearchScreen() {
 
   function handlePopularSearch(term: string) {
     setQuery(term);
-    setTimeout(() => {
-      handleSearch();
-    }, 100);
+    // Search directly with the term to avoid stale state from setQuery batching
+    searchDirectly(term);
+  }
+
+  async function searchDirectly(term: string) {
+    if (!term.trim()) return;
+    setLoading(true);
+    setSearched(true);
+    try {
+      const products = await searchProducts(term);
+      setResults(products);
+    } catch (error) {
+      console.error('Search error:', error);
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onRefreshResults() {
+    if (!query.trim()) return;
+    setRefreshing(true);
+    try {
+      const products = await searchProducts(query);
+      setResults(products);
+    } catch (error) {
+      console.error('Search refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Search</Text>
+      </View>
+
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchInputContainer}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <Ionicons name="search-outline" size={18} color="#999" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search fragrances..."
-            placeholderTextColor={Colors.mediumGray}
+            placeholderTextColor="#999"
             value={query}
             onChangeText={setQuery}
             onSubmitEditing={handleSearch}
@@ -82,8 +121,8 @@ export default function SearchScreen() {
             autoCorrect={false}
           />
           {query.length > 0 && (
-            <TouchableOpacity onPress={() => setQuery('')}>
-              <Text style={styles.clearIcon}>✕</Text>
+            <TouchableOpacity onPress={() => { setQuery(''); setSearched(false); }}>
+              <Ionicons name="close-circle" size={18} color="#999" style={styles.clearIcon} />
             </TouchableOpacity>
           )}
         </View>
@@ -91,16 +130,16 @@ export default function SearchScreen() {
 
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={Colors.black} />
+          <ActivityIndicator size="large" color={BURGUNDY} />
         </View>
       ) : searched && results.length === 0 ? (
         <View style={styles.centerContainer}>
-          <Text style={styles.emptyIcon}>🔍</Text>
+          <Text style={styles.emptyEmoji}>{'🔍'}</Text>
           <Text style={styles.emptyText}>No products found</Text>
           <Text style={styles.emptySubtext}>Try a different search term</Text>
         </View>
       ) : !searched ? (
-        <ScrollView>
+        <ScrollView showsVerticalScrollIndicator={false}>
           {/* Popular Searches */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Popular Searches</Text>
@@ -117,17 +156,17 @@ export default function SearchScreen() {
             </View>
           </View>
 
-          {/* Categories */}
+          {/* Browse Categories */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Browse Categories</Text>
-            {collections.map((collection) => (
+            {collections.filter((c) => c.handle !== 'frontpage' && c.handle !== 'new').map((collection) => (
               <TouchableOpacity
                 key={collection.id}
                 style={styles.categoryItem}
                 onPress={() => router.push(`/collection/${collection.handle}`)}
               >
                 <Text style={styles.categoryTitle}>{collection.title}</Text>
-                <Text style={styles.categoryArrow}>→</Text>
+                <Text style={styles.categoryArrow}>{'>'}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -151,6 +190,7 @@ export default function SearchScreen() {
             )}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefreshResults} tintColor="#780b0c" colors={['#780b0c']} />}
           />
         </View>
       )}
@@ -161,102 +201,127 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: '#FFFFFF',
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e6e6e6',
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#000',
+    fontFamily: Platform.OS === 'web' ? 'Cormorant, serif' : 'serif',
   },
   searchContainer: {
-    padding: Spacing.md,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.lightGray,
+    padding: 16,
+    backgroundColor: '#FFFFFF',
   },
   searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.lightGray,
-    borderRadius: 25,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#e6e6e6',
   },
   searchIcon: {
-    fontSize: 18,
-    marginRight: Spacing.sm,
+    fontSize: 16,
+    marginRight: 10,
   },
   searchInput: {
     flex: 1,
-    ...Typography.body,
-    fontSize: 16,
+    fontSize: 15,
+    color: '#000',
   },
   clearIcon: {
-    fontSize: 18,
-    color: Colors.mediumGray,
-    padding: Spacing.xs,
+    fontSize: 16,
+    color: '#999',
+    padding: 4,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.xl,
+    padding: 32,
   },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: Spacing.md,
+  emptyEmoji: {
+    fontSize: 56,
+    marginBottom: 16,
   },
   emptyText: {
-    ...Typography.heading,
-    marginBottom: Spacing.sm,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+    fontFamily: Platform.OS === 'web' ? 'Cormorant, serif' : 'serif',
+    marginBottom: 6,
   },
   emptySubtext: {
-    ...Typography.body,
+    fontSize: 14,
+    color: '#666',
     textAlign: 'center',
   },
   section: {
-    padding: Spacing.md,
+    padding: 16,
   },
   sectionTitle: {
-    ...Typography.heading,
-    marginBottom: Spacing.md,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+    fontFamily: Platform.OS === 'web' ? 'Cormorant, serif' : 'serif',
+    marginBottom: 14,
   },
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.sm,
+    gap: 8,
   },
   tag: {
-    backgroundColor: Colors.lightGray,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    backgroundColor: '#f5f5f5',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e6e6e6',
   },
   tagText: {
-    ...Typography.body,
+    fontSize: 13,
     fontWeight: '500',
+    color: '#303030',
   },
   categoryItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: Spacing.md,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.lightGray,
+    borderBottomColor: '#e6e6e6',
   },
   categoryTitle: {
-    ...Typography.subheading,
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#000',
   },
   categoryArrow: {
-    fontSize: 18,
-    color: Colors.mediumGray,
+    fontSize: 16,
+    color: '#999',
   },
   resultsContainer: {
     flex: 1,
   },
   resultsCount: {
-    ...Typography.body,
-    padding: Spacing.md,
-    backgroundColor: Colors.lightGray,
+    fontSize: 13,
     fontWeight: '600',
+    color: '#303030',
+    padding: 16,
+    backgroundColor: '#f5f5f5',
   },
   listContent: {
-    padding: Spacing.xs,
+    padding: 4,
   },
   productItem: {
     flex: 1 / 2,

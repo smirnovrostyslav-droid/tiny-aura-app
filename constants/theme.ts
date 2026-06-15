@@ -1,44 +1,48 @@
-// Tiny Aura — Anyuta Figma design
+// Kiss of Aroma — Design System from kissofaroma.shop
+import { Platform } from 'react-native';
+
 export const Colors = {
   // Primary
   white: '#FFFFFF',
-  black: '#1A1A1A',
-  darkGray: '#4A4A4A',
+  black: '#000000',
+  darkGray: '#303030',
   mediumGray: '#6B6B6B',
   lightGray: '#F5F5F5',
   mutedGray: '#999999',
-  
-  // Accent — from Figma
-  maroon: '#770a0c',
-  badgeRed: '#770a0c',
-  
-  // Warm tones
+
+  // Brand
+  burgundy: '#780b0c',
+
+  // Announcement / sale bar
+  announcementBg: '#3a2313',
+
+  // Card / surface
+  cardBg: '#f5f5f5',
+  border: '#e6e6e6',
+
+  // Accent
+  accent: '#303030',
+
+  // Legacy compat
+  maroon: '#780b0c',
+  badgeRed: '#780b0c',
   warmBeige: '#F8E8E0',
   lightBeige: '#FAF5F0',
   heroBeige: '#F5E6D8',
   heroBeigeDark: '#EDD5C5',
-  
-  // Sale strip (brown from Figma)
   saleBrown: '#3a2313',
-  
-  // Promo 60% off (dark red with pink accent)
-  promoDark1: '#5C1A1A',
-  promoDark2: '#8B2828',
-  promoAccent: '#b8374a',
-  promoDark3: '#4A1515',
-  
+
   // Category circle colors
   catDeals: '#F5E0D0',
   catWomen: '#F8E8E0',
   catMen: '#F0E0E8',
   catTravel: '#F0E4F0',
   catGifts: '#F5E8E0',
-  
-  // Legacy
-  yellow: '#FFD700',
-  red: '#FF0000',
-  gold: '#FFD700',
-  cream: '#f5f5dc',
+};
+
+export const Fonts = {
+  heading: Platform.OS === 'web' ? 'Cormorant, serif' : 'serif',
+  body: Platform.OS === 'web' ? 'Inter, system-ui, sans-serif' : undefined,
 };
 
 export const Spacing = {
@@ -54,11 +58,13 @@ export const Typography = {
     fontSize: 28,
     fontWeight: '700' as const,
     color: Colors.black,
+    fontFamily: Fonts.heading,
   },
   heading: {
     fontSize: 20,
     fontWeight: '600' as const,
     color: Colors.black,
+    fontFamily: Fonts.heading,
   },
   subheading: {
     fontSize: 16,

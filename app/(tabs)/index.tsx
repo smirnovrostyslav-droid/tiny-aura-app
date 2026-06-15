@@ -12,125 +12,116 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   Modal,
-  Animated,
   Pressable,
+  Dimensions,
+  Animated,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image as ExpoImage } from 'expo-image';
+import * as WebBrowser from 'expo-web-browser';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { ShopifyProduct } from '../../types/shopify';
-import { getCollectionProducts } from '../../services/shopify';
+import { getCollectionProducts, optimizeImageUrl } from '../../services/shopify';
 import { useCart } from '../../services/cartContext';
 
-// ─── Menu sections — synced with tinyaura.us mobile drawer ──
+// ─── Design tokens ───────────────────────────────────────
+const BURGUNDY = '#780b0c';
+const DARK_BROWN = '#3a2313';
+const HEADING_FONT = Platform.OS === 'web' ? 'Cormorant, serif' : 'serif';
+
+// ─── Menu sections ───────────────────────────────────────
 const MENU_SECTIONS = [
   {
-    title: 'Shop by Category',
+    title: 'Shop',
     items: [
-      { label: "Women's Perfumes", route: '/collection/women' },
-      { label: "Men's Cologne", route: '/collection/men' },
+      { label: 'Women', route: '/collection/women' },
+      { label: 'Men', route: '/collection/men' },
+      { label: 'Best Sellers', route: '/collection/best-sellers' },
+      { label: 'Gift Sets', route: '/collection/gift-sets' },
+      { label: 'Sale', route: '/collection/sale-1' },
       { label: 'Unisex', route: '/collection/unisex' },
       { label: 'Shop All', route: '/collection/all' },
     ],
   },
   {
-    title: 'Featured Collections',
+    title: 'Brands',
     items: [
-      { label: 'New Arrivals', route: '/collection/new' },
-      { label: 'Best Sellers', route: '/collection/best-sellers' },
-      { label: 'Gift Sets', route: '/collection/gift-sets' },
-      { label: 'Sale', route: '/collection/sale' },
+      { label: 'Creed', route: '/collection/creed' },
+      { label: 'Dior', route: '/collection/dior' },
+      { label: 'Chanel', route: '/collection/chanel' },
+      { label: 'Tom Ford', route: '/collection/tom-ford' },
+      { label: 'Louis Vuitton', route: '/collection/louis-vuitton' },
+      { label: 'Le Labo', route: '/collection/le-labo' },
+      { label: 'Kilian Paris', route: '/collection/kilian-paris' },
+      { label: 'MFK', route: '/collection/maison-francis-kurkdjian' },
+      { label: 'Parfums de Marly', route: '/collection/parfums-de-marly-paris' },
+      { label: 'Xerjoff', route: '/collection/xerjoff' },
     ],
   },
   {
-    title: 'Account & More',
+    title: 'More',
     items: [
-      { label: 'About Us', route: '/(tabs)/account' },
-      { label: 'Contact', route: '/(tabs)/account' },
-      { label: 'Cart', route: '/(tabs)/cart' },
+      { label: 'About Us', route: 'https://kissofaroma.shop/pages/about-us' },
+      { label: 'Contact', route: 'https://kissofaroma.shop/pages/contact' },
+      { label: 'FAQ', route: 'https://kissofaroma.shop/pages/faq' },
+      { label: 'My Cart', route: '/(tabs)/cart' },
+      { label: 'Wishlist', route: '/(tabs)/wishlist' },
     ],
   },
 ];
 
-// Fixed width for consistent mobile layout
-const W = 390;
-const HERO_W = W - 32; // 358px with 16px margins
+// ─── Dynamic dimensions ──────────────────────────────────
+const { width: SCREEN_W } = Dimensions.get('window');
+const HERO_W = SCREEN_W;
+const HERO_H = Math.round(SCREEN_W * 1.1);
 
-// ─── Images from Figma ─────────────────────────────────
-const FIGMA = {
-  logo: require('../../assets/figma/logo.png'),
-  heroBanner: require('../../assets/figma/hero_banner.png'),
-  product: require('../../assets/figma/product_baccarat.png'),
-  promoBg: require('../../assets/figma/promo_60off_bg.png'),
-  // Category images from tinyaura.us Shopify CDN
-  catDeals: require('../../assets/figma/cat_deals_site.png'),
-  catWomen: require('../../assets/figma/cat_women_site.jpg'),
-  catMen: require('../../assets/figma/cat_men_site.webp'),
-  catNew: require('../../assets/figma/cat_new_site.jpg'),
-  catGifts: require('../../assets/figma/cat_gifts_site.png'),
-};
-
-// ─── Hero slider banners (clean images, text added in code) ─
-// Links synced with tinyaura.us Shopify collections
+// ─── Hero slides — using KOA banner assets ───────────────
 const SLIDES = [
   {
     id: '1',
-    image: require('../../assets/banners/slide_1_clean.png'),
-    title: 'New Arrivals',
-    desc: "Introducing our latest products,\nmade especially for the season.\nShop your favorites before\nthey're gone!",
-    btnText: 'SHOP NOW',
-    link: '/collection/new',
+    image: require('../../assets/koa/BANER_1_mob_1.png'),
+    title: 'Luxury Perfume\nSamples',
+    subtitle: 'TRY BEFORE FULL SIZE\n100+ authentic designer & niche\nscents in 1-10 ml sizes',
+    btnText: 'Shop Samples from $4.99',
+    link: '/collection/all',
   },
   {
     id: '2',
-    image: require('../../assets/banners/slide_2_clean.png'),
-    title: 'Discovery Sets',
-    desc: "Explore our curated selection\nof premium fragrances.\nFind your signature scent\nwith our sample collections.",
+    image: require('../../assets/koa/First slide 1.png'),
+    title: 'Best Sellers',
+    subtitle: 'Discover our most popular\nniche & designer fragrances.',
     btnText: 'SHOP NOW',
-    link: '/collection/gift-sets',
+    link: '/collection/best-sellers',
+  },
+];
+
+// ─── How It Works steps ──────────────────────────────────
+const STEPS = [
+  {
+    num: '01',
+    title: 'Pick Your Scent',
+    desc: 'Shop 100+ authentic fragrances — from bestsellers to niche finds.',
+    img: require('../../assets/koa/How It Work 1.jpg'),
   },
   {
-    id: '3',
-    image: require('../../assets/banners/slide_3_clean.png'),
-    title: 'Spin & Win',
-    desc: "Try your luck! Spin the wheel\nfor a chance to win up to\n15% off on premium\nfragrances. Limited time only!",
-    btnText: 'Browse All Scents',
-    link: '/collection/all',
+    num: '02',
+    title: 'Choose Your Size',
+    desc: 'Start small with sample vials or sprays, or upgrade to 5 ml and 10 ml travel sprays.',
+    img: require('../../assets/koa/How It Work 2.png'),
+  },
+  {
+    num: '03',
+    title: 'Fast Shipping',
+    desc: 'Most orders ship within 1-5 business days, so you can enjoy your fragrance without the wait.',
+    img: require('../../assets/koa/How It Work 3.jpg'),
   },
 ];
 
-// ── How does it work steps ──
-const STEPS = [
-  { num: '1', title: 'Pick Your Scent', desc: 'Shop 500+ authentic fragrances — from bestsellers to niche finds.', img: require('../../assets/steps/step1.png') },
-  { num: '2', title: 'Choose Your Size', desc: 'Start small with sample vials or sprays, or upgrade to 5 ml and 10 ml travel sprays.', img: require('../../assets/steps/step2.png') },
-  { num: '3', title: 'Fast Shipping, Always', desc: 'Most orders ship within one business day, so you can enjoy your fragrance without the wait.', img: require('../../assets/steps/step3.png') },
-];
-
-const ICONS = {
-  navSearch: require('../../assets/icons/nav_search.png'),
-  navCart: require('../../assets/icons/nav_cart.png'),
-  trustAuth: require('../../assets/icons/trust_authentic.png'),
-  trustService: require('../../assets/icons/trust_service.png'),
-  trustShipping: require('../../assets/icons/trust_shipping.png'),
-};
-
-// Categories synced with tinyaura.us "Shop By Department"
-const CATEGORIES_BASE = [
-  { title: "Today's\nDeal", handle: 'sale', img: FIGMA.catDeals },
-  { title: "Women's\nPerfume", handle: 'women', img: FIGMA.catWomen },
-  { title: "Men's\nCologne", handle: 'men', img: FIGMA.catMen },
-  { title: 'New\nArrivals', handle: 'new', img: FIGMA.catNew },
-  { title: 'Gift\nSets', handle: 'gift-sets', img: FIGMA.catGifts },
-];
-
-// Infinite loop: repeat 20 times, start from middle
-const CAT_REPEATS = 20;
-const CATEGORIES_LOOP = Array.from({ length: CAT_REPEATS }, (_, r) =>
-  CATEGORIES_BASE.map((c, i) => ({ ...c, _key: `${r}-${i}` }))
-).flat();
-const CAT_ITEM_W = 74; // 64 circle + 10 gap
-const CAT_MID_OFFSET = Math.floor(CAT_REPEATS / 2) * CATEGORIES_BASE.length * CAT_ITEM_W;
-
-// ── Brands carousel data ──
-const BRAND_ITEM_W = Math.floor((390 - 32) / 2); // half screen = ~179
+// ─── Brands carousel ────────────────────────────────────
+const BRAND_ITEM_W = Math.floor(SCREEN_W / 3.5);
 const BRAND_LOGOS = {
   creed: require('../../assets/brands/creed.png'),
   tomford: require('../../assets/brands/tom_ford.png'),
@@ -161,39 +152,47 @@ const BRANDS_LOOP = Array.from({ length: BRAND_REPEATS }, (_, r) =>
 ).flat();
 const BRAND_MID_OFFSET = Math.floor(BRAND_REPEATS / 2) * BRANDS_BASE.length * BRAND_ITEM_W;
 
+// ─── Nav links (horizontal bar under header) ─────────────
+const NAV_LINKS = [
+  { label: 'WOMEN', route: '/collection/women' },
+  { label: 'MEN', route: '/collection/men' },
+  { label: 'UNISEX', route: '/collection/unisex' },
+  { label: 'BEST SELLERS', route: '/collection/best-sellers' },
+  { label: 'GIFT 🎁', route: '/collection/gift-sets' },
+  { label: 'SALE', route: '/collection/sale-1' },
+];
+
+// ─── Product card dimensions ─────────────────────────────
+const PRODUCT_CARD_W = Math.floor((SCREEN_W - 48) / 2);
+
+// ─── Fixed header height calculation ─────────────────────
+const HEADER_H = 52;
+
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { getCartItemCount } = useCart();
   const [bestsellers, setBestsellers] = useState<ShopifyProduct[]>([]);
+  const [womenProducts, setWomenProducts] = useState<ShopifyProduct[]>([]);
+  const [menProducts, setMenProducts] = useState<ShopifyProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const sliderRef = useRef<FlatList>(null);
-  const catRef = useRef<FlatList>(null);
   const brandRef = useRef<FlatList>(null);
+  const heroTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const heroRestartTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Scroll carousels to middle on mount for infinite loop
+  // Scroll brand carousel to middle on mount
   useEffect(() => {
-    setTimeout(() => {
-      catRef.current?.scrollToOffset({ offset: CAT_MID_OFFSET, animated: false });
+    const timer = setTimeout(() => {
       brandRef.current?.scrollToOffset({ offset: BRAND_MID_OFFSET, animated: false });
     }, 100);
+    return () => clearTimeout(timer);
   }, []);
 
-  // When category scroll reaches edges, silently jump back to middle
-  const onCatScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const x = e.nativeEvent.contentOffset.x;
-    const totalW = CATEGORIES_LOOP.length * CAT_ITEM_W;
-    const oneSetW = CATEGORIES_BASE.length * CAT_ITEM_W;
-    if (x < oneSetW * 2 || x > totalW - oneSetW * 2) {
-      // Find which item index within a set we're closest to
-      const itemInSet = Math.round(x / CAT_ITEM_W) % CATEGORIES_BASE.length;
-      const midOffset = CAT_MID_OFFSET + itemInSet * CAT_ITEM_W;
-      catRef.current?.scrollToOffset({ offset: midOffset, animated: false });
-    }
-  }, []);
-
-  // When brand scroll reaches edges, silently jump back to middle
+  // Brand carousel infinite loop reset
   const onBrandScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const x = e.nativeEvent.contentOffset.x;
     const totalW = BRANDS_LOOP.length * BRAND_ITEM_W;
@@ -207,17 +206,42 @@ export default function HomeScreen() {
 
   useEffect(() => { loadData(); }, []);
 
-  // Auto-scroll every 4 seconds
-  useEffect(() => {
-    const timer = setInterval(() => {
+  // Auto-scroll hero every 5 seconds
+  const startHeroTimer = useCallback(() => {
+    if (heroTimerRef.current) clearInterval(heroTimerRef.current);
+    heroTimerRef.current = setInterval(() => {
       setActiveSlide((prev) => {
         const next = (prev + 1) % SLIDES.length;
         sliderRef.current?.scrollToOffset({ offset: next * HERO_W, animated: true });
         return next;
       });
-    }, 4000);
-    return () => clearInterval(timer);
+    }, 5000);
   }, []);
+
+  useEffect(() => {
+    startHeroTimer();
+    return () => {
+      if (heroTimerRef.current) clearInterval(heroTimerRef.current);
+      if (heroRestartTimeout.current) clearTimeout(heroRestartTimeout.current);
+    };
+  }, [startHeroTimer]);
+
+  const onHeroScrollBeginDrag = useCallback(() => {
+    if (heroTimerRef.current) {
+      clearInterval(heroTimerRef.current);
+      heroTimerRef.current = null;
+    }
+    if (heroRestartTimeout.current) {
+      clearTimeout(heroRestartTimeout.current);
+      heroRestartTimeout.current = null;
+    }
+  }, []);
+
+  const onHeroScrollEndDrag = useCallback(() => {
+    heroRestartTimeout.current = setTimeout(() => {
+      startHeroTimer();
+    }, 5000);
+  }, [startHeroTimer]);
 
   const onSliderScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const x = e.nativeEvent.contentOffset.x;
@@ -229,8 +253,14 @@ export default function HomeScreen() {
 
   async function loadData() {
     try {
-      const products = await getCollectionProducts('best-sellers').catch(() => []);
-      setBestsellers(products);
+      const [bs, women, men] = await Promise.all([
+        getCollectionProducts('best-sellers').catch(() => []),
+        getCollectionProducts('women').catch(() => []),
+        getCollectionProducts('men').catch(() => []),
+      ]);
+      setBestsellers(bs);
+      setWomenProducts(women);
+      setMenProducts(men);
     } catch (e) {
       console.error(e);
     } finally {
@@ -238,237 +268,399 @@ export default function HomeScreen() {
     }
   }
 
+  async function onRefresh() {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }
+
   if (loading) {
-    return <View style={s.center}><ActivityIndicator size="large" color="#1a1a1a" /></View>;
+    return <View style={s.center}><ActivityIndicator size="large" color={BURGUNDY} /></View>;
   }
 
   const cartCount = getCartItemCount();
 
   return (
-    <ScrollView style={s.root} showsVerticalScrollIndicator={false}>
+    <View style={s.root}>
+      {/* ══════ FIXED TOP SECTION ══════ */}
+      <View style={[s.fixedTop, { paddingTop: insets.top }]}>
+        {/* Announcement bar */}
+        <View style={s.announcementBar}>
+          <Text style={s.announcementText}>
+            ✓ 100% Authentic Perfumes  {'•'}  Free US Shipping $59+  {'•'}  Samples From $4.99
+          </Text>
+        </View>
 
-      {/* ══════ TOP BAR ══════ */}
-      <View style={s.topBar}>
-        <Text style={s.topBarText}>Free US shipping on orders over $50</Text>
+        {/* Header */}
+        <View style={s.header}>
+          <TouchableOpacity style={s.headerBtn} onPress={() => setMenuOpen(true)} accessibilityLabel="Open menu" accessibilityRole="button">
+            <Ionicons name="menu-outline" size={24} color="#1a1a1a" />
+          </TouchableOpacity>
+
+          <Image source={require('../../assets/koa/logo_transparent.png')} style={s.logo} resizeMode="contain" accessibilityLabel="Kiss of Aroma logo" />
+
+          <View style={s.headerRight}>
+            <TouchableOpacity style={s.headerBtn} onPress={() => router.push('/(tabs)/search')} accessibilityLabel="Search" accessibilityRole="button">
+              <Ionicons name="search-outline" size={22} color="#1a1a1a" />
+            </TouchableOpacity>
+            <TouchableOpacity style={s.headerBtn} onPress={() => router.push('/(tabs)/cart')} accessibilityLabel={cartCount > 0 ? `Cart, ${cartCount} items` : 'Cart'} accessibilityRole="button">
+              <Ionicons name="bag-outline" size={22} color="#1a1a1a" />
+              {cartCount > 0 && (
+                <View style={s.cartBadge}><Text style={s.cartBadgeText}>{cartCount}</Text></View>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
 
       {/* ══════ MENU DRAWER ══════ */}
-      <MenuDrawer visible={menuOpen} onClose={() => setMenuOpen(false)} router={router} />
+      <MenuDrawer visible={menuOpen} onClose={() => setMenuOpen(false)} router={router} insets={insets} />
 
-      {/* ══════ HEADER ══════ */}
-      <View style={s.header}>
-        <TouchableOpacity style={s.headerBtn} onPress={() => setMenuOpen(true)}>
-          <Text style={{ fontSize: 20, color: '#1a1a1a' }}>☰</Text>
-        </TouchableOpacity>
-        <Image source={FIGMA.logo} style={s.logo} resizeMode="contain" />
-        <View style={s.headerRight}>
-          <TouchableOpacity style={s.headerBtn} onPress={() => router.push('/(tabs)/search')}>
-            <Text style={{ fontSize: 18 }}>🔍</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.headerBtn} onPress={() => router.push('/(tabs)/cart')}>
-            <Text style={{ fontSize: 18 }}>🛍️</Text>
-            {cartCount > 0 && (
-              <View style={s.cartBadge}><Text style={s.cartBadgeText}>{cartCount}</Text></View>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BURGUNDY} colors={[BURGUNDY]} />}>
 
-      {/* ══════ SALE STRIP ══════ */}
-      <View style={s.saleStrip}>
-        <Text style={s.saleText}>75% OFF — Sale! Limited Time Only →</Text>
-      </View>
-
-      {/* ══════ HERO SLIDER ══════ */}
-      <View style={s.heroWrap}>
-        <FlatList
-          ref={sliderRef}
-          data={SLIDES}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onScroll={onSliderScroll}
-          scrollEventThrottle={16}
-          keyExtractor={(item) => item.id}
-          getItemLayout={(_, index) => ({ length: HERO_W, offset: HERO_W * index, index })}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              activeOpacity={0.95}
-              style={s.slide}
-              onPress={() => router.push(item.link as any)}
-            >
-              <Image source={item.image} style={s.heroImg} resizeMode="cover" />
-              <View style={s.heroOverlay}>
-                <Text style={s.heroTitle}>{item.title}</Text>
-                <Text style={s.heroDesc}>{item.desc}</Text>
-                <View style={s.heroBtn}>
-                  <Text style={s.heroBtnText}>{item.btnText}</Text>
-                </View>
-              </View>
+        {/* ══════ NAV LINKS ══════ */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.navBar} contentContainerStyle={s.navBarInner}>
+          {NAV_LINKS.map((link) => (
+            <TouchableOpacity key={link.label} style={s.navItem} onPress={() => router.push(link.route as any)} accessibilityLabel={link.label} accessibilityRole="link">
+              <Text style={s.navItemText}>{link.label}</Text>
             </TouchableOpacity>
-          )}
-        />
-        {/* Dots */}
-        <View style={s.dots}>
-          {SLIDES.map((_, i) => (
-            <View key={i} style={[s.dot, i === activeSlide && s.dotActive]} />
           ))}
-        </View>
-      </View>
+        </ScrollView>
 
-      {/* ══════ CATEGORY CIRCLES — infinite swipeable carousel ══════ */}
-      <FlatList
-        ref={catRef}
-        data={CATEGORIES_LOOP}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        snapToInterval={CAT_ITEM_W}
-        decelerationRate="fast"
-        onMomentumScrollEnd={onCatScrollEnd}
-        getItemLayout={(_, index) => ({ length: CAT_ITEM_W, offset: CAT_ITEM_W * index, index })}
-        keyExtractor={(item) => item._key}
-        renderItem={({ item: c }) => (
-          <TouchableOpacity style={s.catItem} onPress={() => router.push(`/collection/${c.handle}`)}>
-            <View style={s.catCircle}>
-              <Image source={c.img} style={c.handle === 'gift-sets' ? s.catCircleImgGift : s.catCircleImg} resizeMode="contain" />
-            </View>
-            <Text style={s.catLabel}>{c.title}</Text>
-          </TouchableOpacity>
-        )}
-      />
-
-      {/* ══════ 60% OFF PROMO BANNER → /collection/sale ══════ */}
-      <TouchableOpacity activeOpacity={0.9} style={s.promoWrap} onPress={() => router.push('/collection/sale')}>
-        <Image source={FIGMA.promoBg} style={s.promoImg} resizeMode="cover" />
-        <View style={s.promoOverlay}>
-          <Text style={s.promoTitle}>60% OFF!</Text>
-          <Text style={s.promoSub}>LIMITED TIME HOLIDAY DEALS!</Text>
-          <View style={s.promoBtn}>
-            <Text style={s.promoBtnText}>SHOP NOW</Text>
+        {/* ══════ HERO SLIDESHOW ══════ */}
+        <View style={s.heroWrap}>
+          <FlatList
+            ref={sliderRef}
+            data={SLIDES}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={onSliderScroll}
+            onScrollBeginDrag={onHeroScrollBeginDrag}
+            onScrollEndDrag={onHeroScrollEndDrag}
+            scrollEventThrottle={16}
+            keyExtractor={(item) => item.id}
+            getItemLayout={(_, index) => ({ length: HERO_W, offset: HERO_W * index, index })}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                activeOpacity={0.95}
+                style={s.slide}
+                onPress={() => router.push(item.link as any)}
+              >
+                <Image source={item.image} style={s.heroImg} resizeMode="cover" />
+                <LinearGradient
+                  colors={['transparent', 'rgba(255,255,255,0.08)', 'transparent']}
+                  start={{ x: 0, y: 0.4 }}
+                  end={{ x: 0, y: 0.6 }}
+                  style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                  pointerEvents="none"
+                />
+                <View style={s.heroOverlay}>
+                  <Text style={s.heroTitle}>{item.title}</Text>
+                  <Text style={s.heroSubtitle}>{item.subtitle}</Text>
+                  <View style={s.heroBtn}>
+                    <Text style={s.heroBtnText}>{item.btnText}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            )}
+          />
+          {/* Dots */}
+          <View style={s.dots}>
+            {SLIDES.map((_, i) => (
+              <View key={i} style={[s.dot, i === activeSlide && s.dotActive]} />
+            ))}
           </View>
         </View>
-      </TouchableOpacity>
 
-      {/* ══════ BESTSELLER ══════ */}
-      <View style={s.section}>
-        <Text style={s.sectionTitle}>Bestseller</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.bsRow}>
-          {bestsellers.length > 0 ? (
-            bestsellers.slice(0, 8).map((product) => {
-              const price = product.priceRange?.minVariantPrice;
-              const comparePrice = product.compareAtPriceRange?.minVariantPrice;
-              const imageUrl = product.images?.edges?.[0]?.node?.url;
-              const vendor = product.vendor || '';
-              const hasDiscount = comparePrice && parseFloat(comparePrice.amount) > parseFloat(price?.amount || '0');
-              return (
-                <TouchableOpacity key={product.id} style={s.bsCard} onPress={() => router.push(`/product/${product.handle}`)}>
-                  <View style={s.bsBadge}><Text style={s.bsBadgeText}>BESTSELLER</Text></View>
-                  <View style={s.bsImgWrap}>
-                    {imageUrl ? (
-                      <Image source={{ uri: imageUrl }} style={s.bsImg} resizeMode="contain" />
-                    ) : (
-                      <Image source={FIGMA.product} style={s.bsImg} resizeMode="contain" />
-                    )}
-                  </View>
-                  <View style={s.bsInfo}>
-                    <Text style={s.bsName} numberOfLines={1}>{product.title}</Text>
-                    <Text style={s.bsVendor} numberOfLines={2}>{vendor}</Text>
-                    <View style={s.bsPriceRow}>
-                      <Text style={s.bsFrom}>From</Text>
-                      {hasDiscount && <Text style={s.bsOldPrice}>${parseFloat(comparePrice.amount).toFixed(2)}</Text>}
-                      <Text style={s.bsPrice}>${parseFloat(price?.amount || '0').toFixed(2)}</Text>
-                    </View>
-                    <TouchableOpacity style={s.bsBtn}><Text style={s.bsBtnText}>SELECT SIZE</Text></TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-              );
-            })
-          ) : (
-            [0, 1].map((i) => (
-              <View key={i} style={s.bsCard}>
-                <View style={s.bsBadge}><Text style={s.bsBadgeText}>BESTSELLER</Text></View>
-                <View style={s.bsImgWrap}>
-                  <Image source={FIGMA.product} style={s.bsImg} resizeMode="contain" />
-                </View>
-                <View style={s.bsInfo}>
-                  <Text style={s.bsName}>Baccarat Rouge 540</Text>
-                  <Text style={s.bsVendor}>Maison Francis Kurkdjian{'\n'}Paris, 2ml</Text>
-                  <View style={s.bsPriceRow}>
-                    <Text style={s.bsFrom}>From</Text>
-                    <Text style={s.bsOldPrice}>$17.70</Text>
-                    <Text style={s.bsPrice}>$16.70</Text>
-                  </View>
-                  <TouchableOpacity style={s.bsBtn}><Text style={s.bsBtnText}>SELECT SIZE</Text></TouchableOpacity>
-                </View>
-              </View>
-            ))
-          )}
-        </ScrollView>
-      </View>
+        {/* ══════ SCROLLING TICKER (animated) ══════ */}
+        <TickerMarquee />
 
-      {/* ══════ SHOP BY BRAND — infinite carousel ══════ */}
-      <View style={s.section}>
-        <Text style={s.brandSectionTitle}>Shop by Brand</Text>
-        <FlatList
-          ref={brandRef}
-          data={BRANDS_LOOP}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          snapToInterval={BRAND_ITEM_W}
-          decelerationRate="fast"
-          onMomentumScrollEnd={onBrandScrollEnd}
-          getItemLayout={(_, index) => ({ length: BRAND_ITEM_W, offset: BRAND_ITEM_W * index, index })}
-          keyExtractor={(item) => item._key}
-          renderItem={({ item: b }) => (
-            <TouchableOpacity style={s.brandCell} onPress={() => router.push(`/collection/${b.handle}`)}>
-              <Image source={b.logo} style={s.brandLogo} resizeMode="contain" />
-            </TouchableOpacity>
-          )}
-        />
-      </View>
+        {/* ══════ SHOP BY BRAND ══════ */}
+        <View style={s.section}>
+          <FlatList
+            ref={brandRef}
+            data={BRANDS_LOOP}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={BRAND_ITEM_W}
+            decelerationRate="fast"
+            onMomentumScrollEnd={onBrandScrollEnd}
+            getItemLayout={(_, index) => ({ length: BRAND_ITEM_W, offset: BRAND_ITEM_W * index, index })}
+            keyExtractor={(item) => item._key}
+            renderItem={({ item: b }) => (
+              <TouchableOpacity style={s.brandCellSmall} onPress={() => router.push(`/collection/${b.handle}`)}>
+                <Image source={b.logo} style={s.brandLogoSmall} resizeMode="contain" />
+              </TouchableOpacity>
+            )}
+          />
+        </View>
 
-      {/* ══════ HOW DOES IT WORK — 3 steps slider ══════ */}
-      <View style={s.section}>
-        <Text style={s.howTitle}>How does it works</Text>
-        <Text style={s.howSub}>3 simple steps</Text>
-        <FlatList
-          data={STEPS}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(_, i) => `step-${i}`}
-          renderItem={({ item: step }) => (
-            <View style={s.stepSlide}>
-              <Image source={step.img} style={s.stepImg} resizeMode="contain" />
-              <View style={s.stepNumCircle}>
-                <Text style={s.stepNum}>{step.num}</Text>
-              </View>
-              <Text style={s.stepTitle}>{step.title}</Text>
-              <Text style={s.stepDesc}>{step.desc}</Text>
+        {/* ══════ PROMO BANNER ══════ */}
+        <TouchableOpacity style={s.promoBanner} onPress={() => router.push('/collection/all')} activeOpacity={0.9}>
+          <Image source={require('../../assets/koa/small baner.png')} style={s.promoBannerImg} resizeMode="cover" />
+          <View style={s.promoBannerOverlay}>
+            <Text style={s.promoBannerTitle}>SAVE UP TO 43%</Text>
+            <View style={s.promoBannerBtn}>
+              <Text style={s.promoBannerBtnText}>SHOP NOW</Text>
             </View>
+          </View>
+        </TouchableOpacity>
+
+        {/* ══════ BEST SELLERS ══════ */}
+        <View style={s.section}>
+          <View style={s.sectionHeaderRow}>
+            <Text style={s.sectionHeading}>BEST SELLERS</Text>
+            <TouchableOpacity onPress={() => router.push('/collection/best-sellers')}>
+              <Text style={s.viewAllText}>Shop All Perfumes</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.productRow}>
+            {bestsellers.slice(0, 10).map((product) => (
+              <ProductCardInline key={product.id} product={product} router={router} isBestSeller />
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* ══════ HOW DOES IT WORK ══════ */}
+        <View style={s.howSection}>
+          <Text style={s.howTitle}>How Does It Work?</Text>
+          <Text style={s.howSubtitle}>3 Simple Steps</Text>
+          <StepsSlider />
+          <TouchableOpacity style={s.howCta} onPress={() => router.push('/collection/all')}>
+            <Text style={s.howCtaText}>SHOP SAMPLES FROM $4.99</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ══════ WOMEN'S PERFUMES (2-col grid, 2 rows = 4 products) ══════ */}
+        {womenProducts.length > 0 && (
+          <View style={s.section}>
+            <View style={s.sectionHeaderRow}>
+              <Text style={s.sectionHeading}>Women's Perfumes</Text>
+              <TouchableOpacity onPress={() => router.push('/collection/women')}>
+                <Text style={s.viewAllText}>View All</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={s.productGrid}>
+              {womenProducts.slice(0, 6).map((product) => (
+                <ProductCardGrid key={product.id} product={product} router={router} />
+              ))}
+            </View>
+            <TouchableOpacity style={s.sectionCta} onPress={() => router.push('/collection/women')}>
+              <Text style={s.sectionCtaText}>SHOP NOW</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ══════ MEN'S COLOGNE (2-col grid, 2 rows = 4 products) ══════ */}
+        {menProducts.length > 0 && (
+          <View style={s.section}>
+            <View style={s.sectionHeaderRow}>
+              <Text style={s.sectionHeading}>Men's Cologne</Text>
+              <TouchableOpacity onPress={() => router.push('/collection/men')}>
+                <Text style={s.viewAllText}>Shop All Colognes</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={s.productGrid}>
+              {menProducts.slice(0, 6).map((product) => (
+                <ProductCardGrid key={product.id} product={product} router={router} />
+              ))}
+            </View>
+            <TouchableOpacity style={s.sectionCta} onPress={() => router.push('/collection/men')}>
+              <Text style={s.sectionCtaText}>SHOP NOW</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ══════ TRUST BADGES ══════ */}
+        <View style={s.trustSection}>
+          <TrustBadge icon={'✓'} title="100% Authentic" desc="Choose from 100+ scents, all in one place" />
+          <TrustBadge icon={'🎧'} title="Expert Customer Service" desc="Our friendly, expert team is on hand to assist you" />
+          <TrustBadge icon={'🚚'} title="Fast & Free U.S. Shipping Over $59" desc="Orders ship on the day you order them. Arrive within days." last />
+        </View>
+
+        {/* Footer */}
+        <View style={s.footer}>
+          <Text style={s.footerBrand}>Kiss of Aroma</Text>
+          <Text style={s.footerContact}>support@kissofaroma.shop | +1 949 337 8464</Text>
+          <Text style={s.footerAddress}>1022 Family Tree, Irvine, CA 92618</Text>
+          <Text style={s.footerCopy}>{'©'} 2026 Kiss of Aroma. All rights reserved.</Text>
+        </View>
+
+        <View style={{ height: 20 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─── Inline product card (horizontal scroll) ─────────────
+function ProductCardInline({ product, router, isBestSeller = false }: { product: ShopifyProduct; router: any; isBestSeller?: boolean }) {
+  const price = product.priceRange?.minVariantPrice;
+  const comparePrice = product.compareAtPriceRange?.minVariantPrice;
+  const rawImageUrl = product.images?.edges?.[0]?.node?.url;
+  const imageUrl = rawImageUrl ? optimizeImageUrl(rawImageUrl, 330) : null;
+  const vendor = product.vendor || '';
+  const hasDiscount = comparePrice && parseFloat(comparePrice.amount) > parseFloat(price?.amount || '0');
+  const discountPercent = hasDiscount && comparePrice ? Math.round((1 - parseFloat(price?.amount || '0') / parseFloat(comparePrice.amount)) * 100) : 0;
+
+  return (
+    <TouchableOpacity style={s.prodCardInline} onPress={() => router.push(`/product/${product.handle}`)} accessibilityLabel={`${product.title}, from $${parseFloat(price?.amount || '0').toFixed(2)}`} accessibilityRole="button">
+      <View style={s.prodImgWrap}>
+        {imageUrl ? (
+          <ExpoImage source={{ uri: imageUrl }} style={s.prodImg} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+        ) : (
+          <View style={s.prodImgPlaceholder}><Text style={{ color: '#999' }}>No Image</Text></View>
+        )}
+        {/* Badges */}
+        {isBestSeller && (
+          <View style={[s.prodBadge, { backgroundColor: '#2E7D32' }]}><Text style={s.prodBadgeText}>Best Seller</Text></View>
+        )}
+        {discountPercent > 0 && (
+          <View style={[s.prodBadge, { backgroundColor: '#C41E3A', top: isBestSeller ? 26 : 6 }]}><Text style={s.prodBadgeText}>{discountPercent}% OFF</Text></View>
+        )}
+      </View>
+      <View style={s.prodInfo}>
+        <Text style={s.prodName} numberOfLines={2}>{product.title}</Text>
+        {vendor ? <Text style={s.prodVendor} numberOfLines={1}>{vendor}</Text> : null}
+        <View style={s.prodPriceRow}>
+          <Text style={s.prodPrice}>From ${parseFloat(price?.amount || '0').toFixed(2)}</Text>
+          {hasDiscount && comparePrice && (
+            <Text style={s.prodOldPrice}>${parseFloat(comparePrice.amount).toFixed(2)}</Text>
           )}
-        />
-        <TouchableOpacity style={s.stepBtn} onPress={() => router.push('/collection/all')}>
-          <Text style={s.stepBtnText}>SHOP ALL PRODUCTS</Text>
+        </View>
+        <TouchableOpacity style={s.prodBtn} onPress={() => router.push(`/product/${product.handle}`)}>
+          <Text style={s.prodBtnText}>SELECT SIZE</Text>
         </TouchableOpacity>
       </View>
+    </TouchableOpacity>
+  );
+}
 
-      {/* ══════ TRUST BADGES ══════ */}
-      <View style={s.trustBox}>
-        <TrustBadge icon="🔒" title="100% AUTHENTIC" desc="Choose from 500+ scents, all in one place" />
-        <TrustBadge icon="🎧" title="EXPERT CUSTOMER SERVICE" desc="Our friendly expert team is on hand to assist you" />
-        <TrustBadge icon="🚚" title="FAST & FREE U.S. SHIPPING OVER $50" desc="Orders ship on the day you order them & arrive within days" last />
+// ─── Grid product card ───────────────────────────────────
+function ProductCardGrid({ product, router }: { product: ShopifyProduct; router: any }) {
+  const price = product.priceRange?.minVariantPrice;
+  const comparePrice = product.compareAtPriceRange?.minVariantPrice;
+  const rawImageUrl = product.images?.edges?.[0]?.node?.url;
+  const imageUrl = rawImageUrl ? optimizeImageUrl(rawImageUrl, 400) : null;
+  const vendor = product.vendor || '';
+  const hasDiscount = comparePrice && parseFloat(comparePrice.amount) > parseFloat(price?.amount || '0');
+  const discountPercent = hasDiscount && comparePrice ? Math.round((1 - parseFloat(price?.amount || '0') / parseFloat(comparePrice.amount)) * 100) : 0;
+
+  return (
+    <TouchableOpacity style={s.gridCard} onPress={() => router.push(`/product/${product.handle}`)} accessibilityLabel={`${product.title}, from $${parseFloat(price?.amount || '0').toFixed(2)}`} accessibilityRole="button">
+      <View style={s.gridImgWrap}>
+        {imageUrl ? (
+          <ExpoImage source={{ uri: imageUrl }} style={s.gridImg} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+        ) : (
+          <View style={s.gridImgPlaceholder}><Text style={{ color: '#999' }}>No Image</Text></View>
+        )}
+        {discountPercent > 0 && (
+          <View style={[s.prodBadge, { backgroundColor: '#C41E3A' }]}><Text style={s.prodBadgeText}>{discountPercent}% OFF</Text></View>
+        )}
       </View>
+      <View style={s.gridInfo}>
+        <Text style={s.gridName} numberOfLines={2}>{product.title}</Text>
+        {vendor ? <Text style={s.gridVendor} numberOfLines={1}>{vendor}</Text> : null}
+        <View style={s.prodPriceRow}>
+          <Text style={s.gridPrice}>From ${parseFloat(price?.amount || '0').toFixed(2)}</Text>
+          {hasDiscount && comparePrice && <Text style={s.prodOldPrice}>${parseFloat(comparePrice.amount).toFixed(2)}</Text>}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
-      <View style={{ height: 40 }} />
-    </ScrollView>
+// ─── Trust badge ─────────────────────────────────────────
+// ─── Steps slider with dots ─────────────────────────────
+function StepsSlider() {
+  const [activeStep, setActiveStep] = useState(0);
+  return (
+    <View>
+      <FlatList
+        data={STEPS}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        keyExtractor={(item) => item.num}
+        onScroll={(e) => {
+          const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
+          setActiveStep(idx);
+        }}
+        scrollEventThrottle={16}
+        renderItem={({ item: step }) => (
+          <View style={[s.stepCard, { width: SCREEN_W, paddingHorizontal: 16 }]}>
+            <View style={s.stepCardInner}>
+              <Image source={step.img} style={s.stepImg} resizeMode="cover" />
+              <View style={s.stepOverlay}>
+                <View style={s.stepNumBadge}>
+                  <Text style={s.stepNum}>{step.num}</Text>
+                </View>
+                <Text style={s.stepTitle}>{step.title}</Text>
+                <Text style={s.stepDesc}>{step.desc}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+      />
+      <View style={s.stepDots}>
+        {STEPS.map((_, i) => (
+          <View key={i} style={[s.stepDot, i === activeStep && s.stepDotActive]} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ─── Animated scrolling ticker ──────────────────────────
+function TickerMarquee() {
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const [blockW, setBlockW] = useState(0);
+  const animRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    if (blockW > 0) {
+      scrollX.setValue(0);
+      animRef.current = Animated.loop(
+        Animated.timing(scrollX, {
+          toValue: -blockW,
+          duration: blockW * 20,
+          useNativeDriver: true,
+          isInteraction: false,
+        })
+      );
+      animRef.current.start();
+    }
+    return () => { animRef.current?.stop(); };
+  }, [blockW]);
+
+  const items = ['100% AUTHENTIC PERFUMES', 'SAMPLES FROM $4.99', 'FREE US SHIPPING $59+', 'TRY BEFORE YOU BUY'];
+
+  const TickerBlock = ({ onLayout }: { onLayout?: (e: any) => void }) => (
+    <View style={s.tickerBlock} onLayout={onLayout}>
+      {items.map((item, i) => (
+        <React.Fragment key={i}>
+          <Text style={s.tickerItemText}>{item}</Text>
+          <Text style={s.tickerDot}>✦</Text>
+        </React.Fragment>
+      ))}
+    </View>
+  );
+
+  return (
+    <View style={s.ticker}>
+      <Animated.View style={[s.tickerRow, { transform: [{ translateX: scrollX }] }]}>
+        <TickerBlock onLayout={(e: any) => setBlockW(e.nativeEvent.layout.width)} />
+        <TickerBlock />
+        <TickerBlock />
+      </Animated.View>
+    </View>
   );
 }
 
 function TrustBadge({ icon, title, desc, last }: { icon: string; title: string; desc: string; last?: boolean }) {
   return (
-    <View style={[s.trustRow, last && { marginBottom: 0 }]}>
-      <Text style={s.trustEmoji}>{icon}</Text>
+    <View style={[s.trustRow, last && { borderBottomWidth: 0, marginBottom: 0, paddingBottom: 0 }]}>
+      <Text style={s.trustIcon}>{icon}</Text>
       <View style={{ flex: 1 }}>
         <Text style={s.trustTitle}>{title}</Text>
         <Text style={s.trustDesc}>{desc}</Text>
@@ -477,8 +669,8 @@ function TrustBadge({ icon, title, desc, last }: { icon: string; title: string; 
   );
 }
 
-// ─── Menu Drawer Component ──────────────────────────────
-function MenuDrawer({ visible, onClose, router }: { visible: boolean; onClose: () => void; router: any }) {
+// ─── Menu Drawer ─────────────────────────────────────────
+function MenuDrawer({ visible, onClose, router, insets }: { visible: boolean; onClose: () => void; router: any; insets: any }) {
   const [expandedSection, setExpandedSection] = useState<number | null>(0);
 
   if (!visible) return null;
@@ -487,12 +679,11 @@ function MenuDrawer({ visible, onClose, router }: { visible: boolean; onClose: (
     <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
       <View style={s.drawerOverlay}>
         <Pressable style={s.drawerBackdrop} onPress={onClose} />
-        <View style={s.drawer}>
-          {/* Close button */}
+        <View style={[s.drawer, { paddingTop: insets.top }]}>
           <View style={s.drawerHeader}>
-            <Text style={s.drawerLogo}>TINY AURA</Text>
+            <Text style={s.drawerLogo}>KISS OF AROMA</Text>
             <TouchableOpacity onPress={onClose} style={s.drawerClose}>
-              <Text style={{ fontSize: 24, color: '#1a1a1a' }}>✕</Text>
+              <Ionicons name="close" size={22} color="#000" />
             </TouchableOpacity>
           </View>
 
@@ -512,8 +703,17 @@ function MenuDrawer({ visible, onClose, router }: { visible: boolean; onClose: (
                     key={iIdx}
                     style={s.drawerItem}
                     onPress={() => {
-                      onClose();
-                      router.push(item.route as any);
+                      if (item.route.startsWith('http')) {
+                        onClose();
+                        setTimeout(() => {
+                          WebBrowser.openBrowserAsync(item.route).catch((e: any) =>
+                            console.error('Error opening browser:', e)
+                          );
+                        }, 300);
+                      } else {
+                        onClose();
+                        router.push(item.route as any);
+                      }
                     }}
                   >
                     <Text style={s.drawerItemText}>{item.label}</Text>
@@ -529,182 +729,390 @@ function MenuDrawer({ visible, onClose, router }: { visible: boolean; onClose: (
 }
 
 // ═══════════════════════════════════════════════════════════
-// All measurements for 390px width (iPhone 14 Pro)
+// Styles
 // ═══════════════════════════════════════════════════════════
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#FFFFFF' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
 
-  // ── Top bar ──
-  topBar: { backgroundColor: '#1a1a1b', paddingVertical: 6, alignItems: 'center' },
-  topBarText: { color: '#FFFFFF', fontSize: 11, fontWeight: '400' },
+  // ── Fixed top ──
+  fixedTop: {
+    backgroundColor: '#FFFFFF',
+    zIndex: 100,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e6e6e6',
+  },
+
+  // ── Announcement bar ──
+  announcementBar: {
+    backgroundColor: DARK_BROWN,
+    paddingVertical: 6,
+    alignItems: 'center',
+  },
+  announcementText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '400',
+    letterSpacing: 0.3,
+  },
 
   // ── Header ──
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, height: 56, backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    height: HEADER_H,
+    backgroundColor: '#FFFFFF',
   },
-  headerBtn: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center' },
-  logo: { width: 110, height: 48 },
-  headerRight: { flexDirection: 'row', gap: 8 },
+  headerBtn: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  hamburger: {
+    fontSize: 22,
+    color: '#000',
+  },
+  logo: { width: 140, height: 52 },
+  headerRight: { flexDirection: 'row', gap: 4 },
+  headerIcon: { fontSize: 18 },
   cartBadge: {
-    position: 'absolute', top: -2, right: -4,
-    backgroundColor: '#770a0c', borderRadius: 8,
-    minWidth: 16, height: 16, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3,
+    position: 'absolute', top: 0, right: -2,
+    backgroundColor: BURGUNDY, borderRadius: 8,
+    minWidth: 16, height: 16,
+    justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 3,
   },
   cartBadgeText: { color: '#fff', fontSize: 9, fontWeight: '700' },
 
-  // ── Sale strip ──
-  saleStrip: { backgroundColor: '#3a2313', paddingVertical: 8, alignItems: 'center' },
-  saleText: { color: '#FFFFFF', fontSize: 12, fontWeight: '500' },
-
-  // ── Hero Slider ──
-  heroWrap: {
-    marginHorizontal: 16, marginTop: 12,
-    borderRadius: 16, overflow: 'hidden',
+  // ── Nav bar ──
+  navBar: {
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e6e6e6',
   },
+  navBarInner: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 20,
+  },
+  navItem: {},
+  navItemText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#000',
+    letterSpacing: 0.8,
+  },
+
+  // ── Hero ──
+  heroWrap: { overflow: 'hidden', borderRadius: 0, borderWidth: 0, marginHorizontal: 0 },
   slide: {
-    width: HERO_W,
-    height: 220,
+    width: SCREEN_W,
+    height: HERO_H,
     position: 'relative',
   },
   heroImg: {
-    width: HERO_W,
-    height: 220,
+    width: SCREEN_W,
+    height: HERO_H,
+    borderRadius: 0,
+    opacity: 0.95,
   },
   heroOverlay: {
     position: 'absolute',
     top: 0, left: 0, bottom: 0,
-    width: '55%',
-    paddingLeft: 20,
-    paddingTop: 24,
+    width: '60%',
+    paddingLeft: 24,
+    paddingTop: 40,
     justifyContent: 'flex-start',
+    backgroundColor: 'rgba(245, 235, 222, 0.15)',
+  },
+  heroTitle: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#000',
+    fontFamily: HEADING_FONT,
+    marginBottom: 12,
+    lineHeight: 38,
+  },
+  heroSubtitle: {
+    fontSize: 12,
+    color: '#333',
+    lineHeight: 18,
+    marginBottom: 20,
+  },
+  heroBtn: {
+    backgroundColor: BURGUNDY,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
+  heroBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   dots: {
-    flexDirection: 'row', justifyContent: 'center',
-    paddingVertical: 10, gap: 6,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 6,
   },
   dot: {
     width: 8, height: 8, borderRadius: 4,
     backgroundColor: '#d9d9d9',
   },
   dotActive: {
-    width: 20, backgroundColor: '#1a1a1a',
+    width: 24,
+    backgroundColor: BURGUNDY,
     borderRadius: 4,
   },
-  heroTitle: {
-    fontSize: 22, fontWeight: '700', color: '#000000',
-    fontFamily: Platform.OS === 'web' ? 'Georgia, serif' : 'serif',
-    marginBottom: 8,
-  },
-  heroDesc: { fontSize: 10, color: '#333333', lineHeight: 15, marginBottom: 14 },
-  heroBtn: {
-    backgroundColor: '#770a0c', paddingHorizontal: 18, paddingVertical: 9,
-    borderRadius: 6, alignSelf: 'flex-start',
-  },
-  heroBtnText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
 
-  // ── Categories ──
-  catRow: { paddingTop: 20, paddingBottom: 8 },
-  catItem: { alignItems: 'center', width: CAT_ITEM_W, paddingHorizontal: 5 },
-  catCircle: { width: 64, height: 64, borderRadius: 32, overflow: 'hidden', backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#eee', justifyContent: 'center', alignItems: 'center' },
-  catCircleImg: { width: 52, height: 52 },
-  catCircleImgGift: { width: 46, height: 46 },
-  catLabel: { fontSize: 10, fontWeight: '500', color: '#1a1a1a', textAlign: 'center', marginTop: 5, lineHeight: 13 },
-
-  // ── 60% OFF promo — position: relative with absolute overlay ──
-  promoWrap: {
-    marginHorizontal: 16, marginTop: 16,
-    borderRadius: 20, overflow: 'hidden',
-    position: 'relative',
+  // ── Sections ──
+  section: { marginTop: 28 },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 14,
   },
-  promoImg: { width: W - 32, height: 155 },
-  promoOverlay: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+  sectionHeading: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#000',
+    fontFamily: HEADING_FONT,
+  },
+  viewAllText: {
+    fontSize: 13,
+    color: BURGUNDY,
+    fontWeight: '500',
+  },
+
+  // ── Product cards (horizontal) ──
+  productRow: { paddingHorizontal: 16, gap: 12 },
+  prodCardInline: {
+    width: 160,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e6e6e6',
+    overflow: 'hidden',
+  },
+  prodImgWrap: {
+    backgroundColor: '#f5f5f5',
+    height: Math.round(160 * 1.3),
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 0,
+  },
+  prodImg: { width: '100%', height: '100%' },
+  prodImgPlaceholder: {
+    width: '100%', height: '100%',
     justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#f5f5f5',
   },
-  promoTitle: {
-    fontSize: 34, fontWeight: '700', color: '#FFFFFF',
-    fontFamily: Platform.OS === 'web' ? 'Georgia, serif' : 'serif',
-    fontStyle: 'italic',
+  prodInfo: { padding: 10 },
+  prodName: { fontSize: 13, fontWeight: '700', color: '#000' },
+  prodVendor: { fontSize: 11, color: '#888', marginTop: 2 },
+  prodPrice: { fontSize: 14, fontWeight: '700', color: '#000', marginTop: 6 },
+  prodBtn: {
+    backgroundColor: BURGUNDY,
+    paddingVertical: 9,
+    borderRadius: 4,
+    alignItems: 'center',
+    marginTop: 8,
   },
-  promoSub: { fontSize: 11, fontWeight: '600', color: '#FFFFFF', letterSpacing: 1.5, marginTop: 4 },
-  promoBtn: { backgroundColor: '#FFFFFF', paddingHorizontal: 28, paddingVertical: 10, borderRadius: 24, marginTop: 12 },
-  promoBtnText: { fontSize: 12, fontWeight: '700', color: '#770a0c' },
+  prodBtnText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
 
-  // ── Bestseller ──
-  section: { marginTop: 20 },
-  sectionTitle: {
-    fontSize: 22, fontWeight: '700', color: '#000000',
-    fontFamily: Platform.OS === 'web' ? 'Georgia, serif' : 'serif',
-    paddingHorizontal: 16, marginBottom: 14,
+  // ── Product grid ──
+  productGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    gap: 12,
   },
-  bsRow: { paddingHorizontal: 16, gap: 12 },
-  bsCard: { width: 165, backgroundColor: '#FFFFFF' },
-  bsBadge: {
-    position: 'absolute', top: 8, left: 8,
-    backgroundColor: '#770a0c', paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 4, zIndex: 10,
+  gridCard: {
+    width: PRODUCT_CARD_W,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e6e6e6',
+    overflow: 'hidden',
   },
-  bsBadgeText: { color: '#FFFFFF', fontSize: 9, fontWeight: '700' },
-  bsImgWrap: { backgroundColor: '#b5a97a', height: 155, justifyContent: 'center', alignItems: 'center', padding: 16 },
-  bsImg: { width: '100%', height: '100%' },
-  bsInfo: { paddingTop: 10, paddingHorizontal: 4, paddingBottom: 4 },
-  bsName: { fontSize: 14, fontWeight: '700', color: '#000000' },
-  bsVendor: { fontSize: 11, color: '#666666', marginTop: 2, lineHeight: 15 },
-  bsPriceRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 6 },
-  bsFrom: { fontSize: 11, color: '#888888' },
-  bsOldPrice: { fontSize: 12, color: '#999999', textDecorationLine: 'line-through' },
-  bsPrice: { fontSize: 16, fontWeight: '700', color: '#000000' },
-  bsBtn: { backgroundColor: '#770a0c', paddingVertical: 10, borderRadius: 6, alignItems: 'center', marginTop: 10 },
-  bsBtnText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  gridImgWrap: {
+    backgroundColor: '#f5f5f5',
+    height: Math.round(PRODUCT_CARD_W * 1.3),
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 0,
+  },
+  gridImg: { width: '100%', height: '100%' },
+  gridImgPlaceholder: {
+    width: '100%', height: '100%',
+    justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+  },
+  gridInfo: { padding: 10 },
+  gridName: { fontSize: 13, fontWeight: '700', color: '#000' },
+  gridVendor: { fontSize: 11, color: '#888', marginTop: 2 },
+  gridPrice: { fontSize: 14, fontWeight: '700', color: '#000', marginTop: 6 },
 
   // ── Brands ──
-  brandSectionTitle: {
-    fontSize: 22, fontWeight: '400',
-    fontFamily: Platform.OS === 'web' ? 'Georgia, serif' : 'serif',
-    fontStyle: 'italic', color: '#000000', paddingHorizontal: 16, marginBottom: 16,
+  brandCellSmall: {
+    width: Math.floor(SCREEN_W / 3.5),
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRightWidth: 1,
+    borderColor: '#e6e6e6',
+    backgroundColor: '#fff',
   },
-  brandCell: { width: BRAND_ITEM_W, height: 80, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderBottomWidth: 1, borderColor: '#eee' },
-  brandLogo: { width: BRAND_ITEM_W - 32, height: 50 },
+  brandLogoSmall: { width: Math.floor(SCREEN_W / 3.5) - 20, height: 36 },
 
-  // ── How Does It Work ──
+  // ── Ticker ──
+  ticker: { backgroundColor: '#f5ebe0', paddingVertical: 10, overflow: 'hidden' as const, height: 36 },
+  tickerRow: { flexDirection: 'row' as const, alignItems: 'center' as const, height: 16 },
+  tickerBlock: { flexDirection: 'row' as const, alignItems: 'center' as const },
+  tickerItemText: { fontSize: 11, fontWeight: '600' as const, color: '#3a2313', letterSpacing: 0.5 },
+  tickerDot: { fontSize: 8, color: '#3a2313', marginHorizontal: 8 },
+
+  // ── Section CTA button ──
+  sectionCta: {
+    marginHorizontal: 16, marginTop: 12, paddingVertical: 14,
+    borderWidth: 1, borderColor: '#000', borderRadius: 12, alignItems: 'center' as const,
+  },
+  sectionCtaText: { fontSize: 14, fontWeight: '600' as const, color: '#000', letterSpacing: 1 },
+
+  // ── How It Works ──
+  howSection: { marginTop: 36, paddingBottom: 24 },
   howTitle: {
-    fontSize: 24, fontWeight: '700',
-    fontFamily: Platform.OS === 'web' ? 'Georgia, serif' : 'serif',
-    color: '#000', textAlign: 'center', marginBottom: 4,
+    fontSize: 28,
+    fontWeight: '600',
+    color: '#000',
+    fontFamily: HEADING_FONT,
+    textAlign: 'center',
+    marginBottom: 4,
   },
-  howSub: {
-    fontSize: 16, fontWeight: '400',
-    fontFamily: Platform.OS === 'web' ? 'Georgia, serif' : 'serif',
-    fontStyle: 'italic', color: '#444', textAlign: 'center', marginBottom: 16,
+  howSubtitle: {
+    fontSize: 15,
+    fontWeight: '400',
+    fontFamily: HEADING_FONT,
+    fontStyle: 'italic',
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
   },
-  stepSlide: { width: 390, alignItems: 'center', paddingHorizontal: 30 },
-  stepImg: { width: 220, height: 200, marginBottom: 12 },
-  stepNumCircle: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: '#1a1a1a',
-    justifyContent: 'center', alignItems: 'center', marginBottom: 10,
+  stepCard: {
+    marginBottom: 16,
+    height: 220,
   },
-  stepNum: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  stepCardInner: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  stepImg: {
+    width: '100%',
+    height: '100%',
+  },
+  stepOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  stepNumBadge: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: BURGUNDY,
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 6,
+  },
+  stepNum: { color: '#fff', fontSize: 13, fontWeight: '700' },
   stepTitle: {
-    fontSize: 20, fontWeight: '400',
-    fontFamily: Platform.OS === 'web' ? 'Georgia, serif' : 'serif',
-    fontStyle: 'italic', color: '#000', textAlign: 'center', marginBottom: 8,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
+    fontFamily: HEADING_FONT,
+    marginBottom: 4,
   },
-  stepDesc: { fontSize: 13, color: '#555', textAlign: 'center', lineHeight: 19, paddingHorizontal: 10 },
-  stepBtn: {
-    backgroundColor: '#770a0c', paddingVertical: 14, borderRadius: 8,
-    alignItems: 'center', marginHorizontal: 16, marginTop: 20,
+  stepDesc: { fontSize: 12, color: 'rgba(255,255,255,0.9)', lineHeight: 17 },
+  stepDots: { flexDirection: 'row' as const, justifyContent: 'center' as const, gap: 6, marginTop: 12 },
+  stepDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ccc' },
+  stepDotActive: { backgroundColor: '#000', width: 20, borderRadius: 4 },
+  howCta: {
+    backgroundColor: BURGUNDY,
+    paddingVertical: 14,
+    borderRadius: 4,
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 8,
   },
-  stepBtnText: { color: '#fff', fontSize: 13, fontWeight: '700', letterSpacing: 1 },
+  howCtaText: { color: '#fff', fontSize: 13, fontWeight: '700', letterSpacing: 1 },
 
-  // ── Menu Drawer ──
-  drawerOverlay: {
-    flex: 1, flexDirection: 'row',
+  // ── Trust section ──
+  trustSection: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    marginHorizontal: 16,
+    padding: 20,
+    marginTop: 28,
   },
-  drawerBackdrop: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+  trustRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingBottom: 16,
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e6e6e6',
   },
+  trustIcon: { fontSize: 22, marginRight: 14, marginTop: 0 },
+  trustTitle: { fontSize: 13, fontWeight: '800', color: '#000', letterSpacing: 0.3, marginBottom: 3 },
+  trustDesc: { fontSize: 12, color: '#666', lineHeight: 17 },
+
+  // ── Footer ──
+  footer: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    marginTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#e6e6e6',
+  },
+  footerBrand: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+    fontFamily: HEADING_FONT,
+    marginBottom: 6,
+  },
+  footerContact: { fontSize: 12, color: '#666', marginBottom: 4 },
+  footerAddress: { fontSize: 12, color: '#666', marginBottom: 8 },
+  footerCopy: { fontSize: 11, color: '#999' },
+
+  // Promo banner
+  promoBanner: { marginHorizontal: 16, marginTop: 16, borderRadius: 16, overflow: 'hidden', position: 'relative' as const },
+  promoBannerImg: { width: '100%' as const, height: 180 },
+  promoBannerOverlay: { position: 'absolute' as const, top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center' as const, alignItems: 'center' as const },
+  promoBannerTitle: { fontSize: 28, fontWeight: '700' as const, color: '#000', fontFamily: HEADING_FONT, marginBottom: 12 },
+  promoBannerBtn: { backgroundColor: BURGUNDY, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+  promoBannerBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' as const },
+
+  // Product badges
+  prodBadge: { position: 'absolute' as const, top: 6, left: 6, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 100, zIndex: 10 },
+  prodBadgeText: { color: '#fff', fontSize: 8, fontWeight: '600' as const },
+  prodPriceRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, marginTop: 4 },
+  prodOldPrice: { fontSize: 13, color: '#000', textDecorationLine: 'line-through' as const },
+
+  // ── Drawer ──
+  drawerOverlay: { flex: 1, flexDirection: 'row' },
+  drawerBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
   drawer: {
     position: 'absolute', top: 0, left: 0, bottom: 0,
     width: 300, backgroundColor: '#FFFFFF',
@@ -712,38 +1120,28 @@ const s = StyleSheet.create({
   },
   drawerHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 50, paddingBottom: 16,
-    borderBottomWidth: 1, borderBottomColor: '#eee',
+    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16,
+    borderBottomWidth: 1, borderBottomColor: '#e6e6e6',
   },
   drawerLogo: {
-    fontSize: 18, fontWeight: '700', color: '#1a1a1a', letterSpacing: 2,
+    fontSize: 16, fontWeight: '700', color: '#000', letterSpacing: 2,
+    fontFamily: HEADING_FONT,
   },
   drawerClose: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
-  drawerContent: { flex: 1, paddingTop: 8 },
-  drawerSection: {
-    borderBottomWidth: 1, borderBottomColor: '#f0f0f0',
-  },
+  drawerContent: { flex: 1, paddingTop: 4 },
+  drawerSection: { borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
   drawerSectionHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingVertical: 16,
+    paddingHorizontal: 20, paddingVertical: 14,
   },
   drawerSectionTitle: {
-    fontSize: 14, fontWeight: '700', color: '#1a1a1a',
+    fontSize: 13, fontWeight: '700', color: '#000',
     letterSpacing: 0.5, textTransform: 'uppercase',
   },
   drawerChevron: { fontSize: 20, color: '#999' },
   drawerItem: {
-    paddingHorizontal: 20, paddingVertical: 14,
+    paddingHorizontal: 20, paddingVertical: 12,
     backgroundColor: '#fafafa',
   },
-  drawerItemText: {
-    fontSize: 15, color: '#333', fontWeight: '400',
-  },
-
-  // ── Trust badges ──
-  trustBox: { backgroundColor: '#f5f5f5', borderRadius: 16, marginHorizontal: 16, padding: 20, marginTop: 24 },
-  trustRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 },
-  trustEmoji: { fontSize: 22, marginRight: 14, marginTop: 0 },
-  trustTitle: { fontSize: 13, fontWeight: '800', color: '#000000', letterSpacing: 0.3, marginBottom: 4 },
-  trustDesc: { fontSize: 12, color: '#666666', lineHeight: 17 },
+  drawerItemText: { fontSize: 14, color: '#333', fontWeight: '400' },
 });

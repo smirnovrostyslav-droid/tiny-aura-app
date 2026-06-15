@@ -7,26 +7,36 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShopifyProduct } from '../../types/shopify';
 import { getCollectionProducts } from '../../services/shopify';
-import { Colors, Spacing, Typography } from '../../constants/theme';
 import { ProductCard } from '../../components/ProductCard';
+import { Ionicons } from '@expo/vector-icons';
+
+const BURGUNDY = '#780b0c';
+const HEADING_FONT = Platform.OS === 'web' ? 'Cormorant, serif' : 'serif';
 
 export default function CollectionScreen() {
   const { handle } = useLocalSearchParams<{ handle: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [products, setProducts] = useState<ShopifyProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (handle) {
+      setLoading(true);
+      setProducts([]);
       loadProducts();
     }
   }, [handle]);
 
   async function loadProducts() {
+    if (!handle) return;
     try {
       const data = await getCollectionProducts(handle);
       setProducts(data);
@@ -37,18 +47,31 @@ export default function CollectionScreen() {
     }
   }
 
+  async function onRefresh() {
+    if (!handle) return;
+    setRefreshing(true);
+    try {
+      const data = await getCollectionProducts(handle);
+      setProducts(data);
+    } catch (error) {
+      console.error('Error refreshing collection:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.black} />
+      <View style={[styles.loadingContainer, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={BURGUNDY} />
       </View>
     );
   }
 
   if (products.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>📦</Text>
+      <View style={[styles.emptyContainer, { paddingTop: insets.top }]}>
+        <Text style={styles.emptyIcon}>{'📦'}</Text>
         <Text style={styles.emptyText}>No products found</Text>
         <Text style={styles.emptySubtext}>Check back later for new arrivals</Text>
       </View>
@@ -63,7 +86,7 @@ export default function CollectionScreen() {
   return (
     <View style={styles.container}>
       {/* Navigation Header */}
-      <View style={styles.navHeader}>
+      <View style={[styles.navHeader, { paddingTop: Platform.OS === 'web' ? 8 : insets.top + 8 }]}>
         <TouchableOpacity style={styles.navBtn} onPress={() => {
           if (Platform.OS === 'web' && window.history.length > 1) {
             window.history.back();
@@ -71,28 +94,17 @@ export default function CollectionScreen() {
             router.back();
           }
         }}>
-          <Text style={styles.navBtnIcon}>‹</Text>
+          <Ionicons name="chevron-back" size={28} color="#000" />
         </TouchableOpacity>
         <Text style={styles.navTitle}>{collectionTitle}</Text>
         <View style={styles.navBtn} />
       </View>
 
-      {/* Shop All Button */}
-      <View style={styles.headerContainer}>
-        <TouchableOpacity style={styles.shopAllButton}>
-          <Text style={styles.shopAllButtonText}>
-            SHOP ALL {collectionTitle.toUpperCase()}
-          </Text>
-        </TouchableOpacity>
-        
-        <View style={styles.filterRow}>
-          <Text style={styles.productCount}>
-            {products.length} {products.length === 1 ? 'Product' : 'Products'}
-          </Text>
-          <TouchableOpacity style={styles.filterButton}>
-            <Text style={styles.filterButtonText}>Sort & Filter</Text>
-          </TouchableOpacity>
-        </View>
+      {/* Info bar */}
+      <View style={styles.infoBar}>
+        <Text style={styles.productCount}>
+          {products.length} {products.length === 1 ? 'Product' : 'Products'}
+        </Text>
       </View>
 
       {/* Product Grid */}
@@ -105,11 +117,13 @@ export default function CollectionScreen() {
             <ProductCard
               product={item}
               onPress={() => router.push(`/product/${item.handle}`)}
+              showBestSeller={handle === 'best-sellers'}
             />
           </View>
         )}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#780b0c" colors={['#780b0c']} />}
       />
     </View>
   );
@@ -118,20 +132,18 @@ export default function CollectionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: '#FFFFFF',
   },
   navHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 8,
-    paddingTop: Platform.OS === 'web' ? 8 : 50,
     paddingBottom: 8,
     backgroundColor: '#fff',
     zIndex: 9999,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    ...(Platform.OS === 'web' ? { position: 'relative' as any } : {}),
+    borderBottomColor: '#e6e6e6',
   },
   navBtn: {
     width: 44,
@@ -142,78 +154,58 @@ const styles = StyleSheet.create({
   },
   navBtnIcon: {
     fontSize: 28,
-    color: '#1a1a1a',
+    color: '#000',
     fontWeight: '300',
   },
   navTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1a1a1a',
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+    fontFamily: HEADING_FONT,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: '#FFFFFF',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.white,
-    padding: Spacing.xl,
+    backgroundColor: '#FFFFFF',
+    padding: 32,
   },
   emptyIcon: {
-    fontSize: 64,
-    marginBottom: Spacing.md,
+    fontSize: 56,
+    marginBottom: 16,
   },
   emptyText: {
-    ...Typography.heading,
-    marginBottom: Spacing.sm,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+    fontFamily: HEADING_FONT,
+    marginBottom: 6,
   },
   emptySubtext: {
-    ...Typography.body,
+    fontSize: 14,
+    color: '#666',
     textAlign: 'center',
   },
-  headerContainer: {
-    backgroundColor: Colors.white,
+  infoBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#f5f5f5',
     borderBottomWidth: 1,
-    borderBottomColor: Colors.lightGray,
-  },
-  shopAllButton: {
-    backgroundColor: Colors.black,
-    margin: Spacing.md,
-    paddingVertical: Spacing.md,
-    borderRadius: 25,
-    alignItems: 'center',
-  },
-  shopAllButtonText: {
-    color: Colors.white,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  filterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.md,
+    borderBottomColor: '#e6e6e6',
   },
   productCount: {
-    ...Typography.body,
+    fontSize: 13,
     fontWeight: '600',
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  filterButtonText: {
-    ...Typography.body,
-    fontWeight: '600',
-    color: Colors.black,
+    color: '#303030',
   },
   listContent: {
-    padding: Spacing.xs,
+    padding: 4,
   },
   productItem: {
     flex: 1 / 2,
