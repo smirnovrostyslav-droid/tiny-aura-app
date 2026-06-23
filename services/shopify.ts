@@ -50,7 +50,7 @@ export function optimizeImageUrl(url: string, width: number = 400): string {
 export async function getCollections(): Promise<ShopifyCollection[]> {
   const query = `
     query GetCollections {
-      collections(first: 10) {
+      collections(first: 50) {
         edges {
           node {
             id
@@ -81,7 +81,7 @@ export async function getCollectionProducts(
   const query = `
     query GetCollectionProducts($handle: String!) {
       collection(handle: $handle) {
-        products(first: 20) {
+        products(first: 250) {
           edges {
             node {
               id
@@ -224,7 +224,7 @@ export async function getProductByHandle(
 export async function searchProducts(query: string): Promise<ShopifyProduct[]> {
   const searchQuery = `
     query SearchProducts($query: String!) {
-      products(first: 20, query: $query) {
+      products(first: 100, query: $query) {
         edges {
           node {
             id
