@@ -18,15 +18,17 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "us.tinyaura.app",
-      "buildNumber": "9",
+      "buildNumber": "10",
       "infoPlist": {
         "CFBundleDisplayName": "Kiss of Aroma",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
     "android": {
       "package": "shop.kissofaroma.app",
-      "versionCode": 8,
+      "versionCode": 9,
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -41,11 +43,44 @@
       "expo-router",
       "expo-web-browser",
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      "expo-notifications",
+      [
+        "klaviyo-expo-plugin",
+        {
+          "android": {
+            "logLevel": 4,
+            "openTracking": true,
+            "notificationColor": "#780b0c"
+          },
+          "ios": {
+            "badgeAutoclearing": true,
+            "codeSigningStyle": "Automatic",
+            "devTeam": "7H5G9JC66X"
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {
-        "projectId": "2a928c33-7b14-4704-a2f5-7544d6da758a"
+        "projectId": "2a928c33-7b14-4704-a2f5-7544d6da758a",
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "KlaviyoNotificationServiceExtension",
+                  "bundleIdentifier": "us.tinyaura.app.KlaviyoNotificationServiceExtension",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.us.tinyaura.app.KlaviyoNotificationServiceExtension.shared"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        }
       },
       "router": {}
     },

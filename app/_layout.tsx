@@ -1,15 +1,61 @@
-import React from 'react';
-import { Stack } from 'expo-router';
+import React, { useEffect, useRef } from 'react';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { CartProvider } from '../services/cartContext';
 import { WishlistProvider } from '../services/wishlistContext';
 import { View, Text, TouchableOpacity, Platform, StyleSheet } from 'react-native';
+import { initKlaviyo, registerForPush, resolvePushUrl, Notifications } from '../services/klaviyoPush';
 
 // Required for expo-auth-session to dismiss the in-app browser after OAuth redirect.
 WebBrowser.maybeCompleteAuthSession();
 
+// Initialize Klaviyo as early as possible (before the SDK is used anywhere).
+initKlaviyo();
+
+// Wires Klaviyo push: registers the device token and routes taps on notifications / deep links.
+function useKlaviyoPush() {
+  const router = useRouter();
+  const handled = useRef(false);
+
+  useEffect(() => {
+    // Ask permission + register the push token with Klaviyo (no-ops if denied).
+    registerForPush();
+
+    const go = (url?: string | null) => {
+      if (!url) return;
+      const route = resolvePushUrl(url);
+      if (route) router.push(route as any);
+    };
+
+    // App opened from a killed state via a deep link.
+    Linking.getInitialURL().then((url) => {
+      if (url && !handled.current) {
+        handled.current = true;
+        go(url);
+      }
+    });
+
+    // Deep links received while the app is running.
+    const linkSub = Linking.addEventListener('url', ({ url }) => go(url));
+
+    // A push notification was tapped — navigate to its target (deep link in the payload).
+    const notifSub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response?.notification?.request?.content?.data as Record<string, any> | undefined;
+      const url = (data?.url || data?.deeplink || data?.link) as string | undefined;
+      if (url) go(url);
+    });
+
+    return () => {
+      linkSub.remove();
+      notifSub.remove();
+    };
+  }, [router]);
+}
+
 function AppContent() {
+  useKlaviyoPush();
   return (
     <>
       <StatusBar style="dark" />

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "695721063342",
+    "project_id": "kiss-of-aroma",
+    "storage_bucket": "kiss-of-aroma.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:695721063342:android:a8df1e4f9bf94765b78e3f",
+        "android_client_info": {
+          "package_name": "shop.kissofaroma.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmfpA3OfvPIh79phaFG-gwGE1ngxC8nrc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

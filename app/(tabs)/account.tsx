@@ -15,6 +15,13 @@ import {
   fetchCustomer,
   Customer,
 } from '../../services/shopifyCustomerAccount';
+import { identify as klaviyoIdentify, resetProfile as klaviyoReset } from '../../services/klaviyoPush';
+
+// Link the signed-in customer to Klaviyo so push targets the right profile.
+function linkKlaviyo(c: Customer | null) {
+  const email = c?.emailAddress?.emailAddress;
+  if (email) klaviyoIdentify(email, c?.firstName || undefined, c?.lastName || undefined);
+}
 
 const BURGUNDY = '#780b0c';
 const HEADING_FONT = Platform.OS === 'web' ? 'Cormorant, serif' : 'serif';
@@ -41,6 +48,7 @@ export default function AccountScreen() {
       if (await isLoggedIn()) {
         const c = await fetchCustomer();
         setCustomer(c);
+        linkKlaviyo(c);
       }
     } catch (e: any) {
       // Only logout on auth errors. Network/server errors leave tokens intact
@@ -62,6 +70,7 @@ export default function AccountScreen() {
       await shopifyLogin();
       const c = await fetchCustomer();
       setCustomer(c);
+      linkKlaviyo(c);
     } catch (e: any) {
       if (e?.message !== 'Sign in cancelled') {
         Alert.alert('Sign in failed', e?.message || 'Unknown error');
@@ -73,6 +82,7 @@ export default function AccountScreen() {
 
   async function handleLogout() {
     try { await shopifyLogout(); } catch (_) {}
+    klaviyoReset();
     setCustomer(null);
   }
 
